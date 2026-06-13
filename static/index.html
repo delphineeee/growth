@@ -1,396 +1,169 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Growth AI Studio | 面向全学科学生的职业成长平台</title>
-  <meta name="description" content="Growth AI Studio：支持用户登录、用户独立数据库、跨专业职业规划和自由输入职业目标的 AI 职业成长平台。">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Growth AI Studio</title>
   <link rel="stylesheet" href="styles.css">
+  <style>
+    .app-shell { display: flex; min-height: 100vh; }
+    .sidebar { width: 240px; background: rgba(255,252,246,0.96); border-right: 1px solid var(--line); padding: 24px 16px; display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+    .sidebar .brand { font-family: Georgia, serif; font-size: 1.3rem; font-weight: 700; color: var(--ink); margin-bottom: 16px; padding: 0 8px; }
+    .sidebar .brand span { color: var(--accent); }
+    .sidebar .user-info { font-size: 0.8rem; color: var(--muted); padding: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--line); }
+    .nav-btn { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 14px; border: none; background: transparent; color: var(--ink); font: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer; text-align: left; width: 100%; transition: all 180ms ease; }
+    .nav-btn:hover { background: rgba(15,133,118,0.06); transform: translateX(2px); }
+    .nav-btn.active { background: linear-gradient(135deg, rgba(15,133,118,0.12), rgba(255,255,255,0.92)); border: 1px solid rgba(15,133,118,0.2); }
+    .main-content { flex: 1; padding: 32px 40px; overflow-y: auto; max-width: 900px; }
+    .page { display: none; }
+    .page.active { display: block; }
+    .glass-card { background: var(--panel); border: 1px solid rgba(255,255,255,0.68); border-radius: var(--radius-xl); padding: 28px; box-shadow: var(--shadow); margin-bottom: 20px; }
+    .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .skill-tag { display: inline-block; background: var(--accent-soft); color: var(--accent-strong); padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; margin: 3px; }
+    .gap-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; margin: 6px 0; background: rgba(255,255,255,0.5); border-radius: 12px; border: 1px solid var(--line); font-size: 0.9rem; }
+    .badge { display: inline-block; padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; }
+    .badge-ok { background: var(--accent-soft); color: var(--accent-strong); }
+    .badge-warn { background: var(--warm-soft); color: var(--warm); }
+    textarea, input[type=text], input[type=password] { width: 100%; border: 1px solid var(--line); background: rgba(255,255,255,0.9); border-radius: 14px; padding: 12px 14px; font: inherit; }
+    textarea { resize: vertical; min-height: 80px; }
+    .field { margin-bottom: 12px; }
+    .field span { display: block; font-weight: 700; font-size: 0.9rem; margin-bottom: 6px; color: var(--ink); }
+    .auth-shell { min-height: 100vh; display: grid; place-items: center; padding: 20px 0; }
+    .auth-card { display: grid; grid-template-columns: 1.2fr 0.86fr; gap: 24px; padding: 28px; border-radius: var(--radius-xl); }
+    .primary-btn { appearance: none; border: none; border-radius: 999px; background: linear-gradient(135deg, var(--accent), var(--accent-strong)); color: white; padding: 14px 20px; font-size: 0.95rem; font-weight: 700; cursor: pointer; box-shadow: 0 14px 28px rgba(11,92,83,0.26); transition: transform 180ms ease; width: 100%; margin-top: 8px; }
+    .primary-btn:hover { transform: translateY(-2px); }
+    .secondary-link { display: inline-flex; justify-content: center; align-items: center; border-radius: 999px; color: var(--ink); padding: 13px 18px; background: rgba(255,255,255,0.68); border: 1px solid rgba(22,50,47,0.08); cursor: pointer; font: inherit; width: 100%; margin-top: 8px; }
+    .auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 18px; }
+    .auth-tab { appearance: none; border: 1px solid rgba(22,50,47,0.08); border-radius: 16px; padding: 12px; background: rgba(255,255,255,0.8); color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; transition: all 180ms ease; }
+    .auth-tab.is-active { background: linear-gradient(135deg, rgba(15,133,118,0.12), rgba(255,255,255,0.94)); border-color: rgba(15,133,118,0.3); }
+    @media (max-width: 768px) { .app-shell { flex-direction: column; } .sidebar { width: 100%; padding: 12px; flex-direction: row; flex-wrap: wrap; gap: 4px; } .sidebar .brand { margin-bottom: 0; margin-right: auto; } .nav-btn { width: auto; font-size: 0.75rem; padding: 8px 10px; } .main-content { padding: 16px; } .auth-card { grid-template-columns: 1fr; } }
+  </style>
 </head>
 <body>
-  <div class="ambient ambient-left"></div>
-  <div class="ambient ambient-right"></div>
+<div class="ambient ambient-left"></div>
+<div class="ambient ambient-right"></div>
 
-  <section id="authGate" class="auth-shell">
-    <div class="auth-card glass-card shell">
-      <div class="auth-copy">
-        <p class="eyebrow">Growth AI Studio</p>
-        <h1>让每个学生都有自己的 AI 职业成长空间</h1>
-        <p class="hero-description">
-          这不是只能给少数专业用的静态 Demo，而是一套面向全学科、支持自由职业输入、支持用户独立数据空间的成长平台。
-          你可以注册自己的账号，保存专属画像、目标岗位、学习路径和历史版本。
-        </p>
-        <div class="auth-feature-list">
-          <article>
-            <strong>每位用户独立数据库</strong>
-            <p>基于浏览器本地 IndexedDB 保存账号、草稿、历史方案与回访记录。</p>
-          </article>
-          <article>
-            <strong>覆盖多学科多专业</strong>
-            <p>工学、理学、文法经管、艺术、教育、医学、农学等都可以使用。</p>
-          </article>
-          <article>
-            <strong>支持自由职业输入</strong>
-            <p>用户直接输入“我想做什么”，Growth AI 会自动拆解能力蓝图并生成个性化计划。</p>
-          </article>
-        </div>
-      </div>
-
-      <div class="auth-panel">
-        <div class="auth-tabs">
-          <button type="button" class="auth-tab is-active" data-auth-mode="login">登录</button>
-          <button type="button" class="auth-tab" data-auth-mode="register">注册</button>
-        </div>
-
-        <form id="authForm" class="auth-form">
-          <label class="field" id="authDisplayNameField" hidden>
-            <span>显示名</span>
-            <input id="authDisplayName" type="text" placeholder="例如：筠舒">
-          </label>
-
-          <label class="field">
-            <span>用户名</span>
-            <input id="authUsername" type="text" placeholder="例如：yunshu">
-          </label>
-
-          <label class="field">
-            <span>密码</span>
-            <input id="authPassword" type="password" placeholder="演示版仅保存在当前浏览器">
-          </label>
-
-          <button type="submit" class="primary-btn full-width" id="authSubmitBtn">进入我的 Growth 空间</button>
-        </form>
-
-        <button type="button" class="secondary-link full-width secondary-btn" id="demoLoginBtn">一键进入演示账号</button>
-        <p class="auth-note">说明：当前版本使用浏览器本地数据库进行账号隔离与数据保存，适合 GitHub Pages 部署演示。</p>
+<!-- ═══ Auth Gate ═══ -->
+<section id="authGate" class="auth-shell">
+  <div class="auth-card glass-card shell">
+    <div class="auth-copy">
+      <p class="eyebrow">Growth AI Studio</p>
+      <h1>让每个学生都有自己的<br>AI 职业成长空间</h1>
+      <p class="hero-description">上传简历和课程表，设定目标岗位，AI 自动生成个性化学习路径并推荐全网资源，定时回访追踪成长进度。</p>
+      <div class="auth-feature-list">
+        <article><strong>AI 构建个人画像</strong><p>上传简历与课表，多轮对话确认真实能力。</p></article>
+        <article><strong>目标岗位技能拆解</strong><p>输入目标岗位，AI 逐个拆解所需技能并对比差距。</p></article>
+        <article><strong>三层学习路径</strong><p>年/月/周层层规划，精确到每天学什么、用什么资源。</p></article>
       </div>
     </div>
-  </section>
-
-  <div id="appRoot" hidden>
-    <div class="topbar shell">
-      <div class="brand-block">
-        <p class="eyebrow">Growth AI Studio</p>
-        <div class="brand-line">
-          <strong>面向全学科学生的个性化职业成长平台</strong>
-          <span class="mini-note">登录后每位用户拥有自己的本地数据库与历史版本</span>
-        </div>
+    <div class="auth-panel">
+      <div class="auth-tabs">
+        <button class="auth-tab is-active" id="tabLogin" onclick="switchAuthTab('login')">登录</button>
+        <button class="auth-tab" id="tabRegister" onclick="switchAuthTab('register')">注册</button>
       </div>
-      <div class="topbar-actions">
-        <span id="currentUserBadge" class="user-badge"></span>
-        <button type="button" class="secondary-link compact-btn" id="saveVersionBtn">保存版本</button>
-        <button type="button" class="secondary-link compact-btn" id="newPlanBtn">新建方案</button>
-        <button type="button" class="secondary-link compact-btn" id="logoutBtn">退出登录</button>
-      </div>
+      <form id="authForm" class="auth-form" onsubmit="handleAuth(event)">
+        <label class="field" id="displayNameField" hidden><span>显示名</span><input id="displayName" placeholder="例如：李明"></label>
+        <label class="field"><span>用户名</span><input id="authUser" placeholder="例如：liming" required></label>
+        <label class="field"><span>密码</span><input id="authPass" type="password" placeholder="至少 6 个字符" required></label>
+        <button type="submit" class="primary-btn" id="authBtn">登录</button>
+      </form>
+      <button class="secondary-link" onclick="demoLogin()">一键体验演示账号</button>
+      <p class="auth-note">提示：用户数据独立存储，每位用户拥有自己的画像、分析和学习路径。</p>
     </div>
-
-    <header class="hero shell">
-      <div class="hero-copy">
-        <p class="eyebrow">AI + 求职 + 个性化成长</p>
-        <h1>Growth</h1>
-        <p class="hero-subtitle">从“我想做什么”到“我每天该学什么”</p>
-        <p class="hero-description">
-          现在的 Growth 不再局限于 Java、产品、数据分析三个方向。用户可以直接输入自己的目标职业，
-          例如“品牌策划”“法务”“医药数据分析师”“工业设计师”“选调生”“高校辅导员”，
-          系统会基于专业背景、时间约束、经历与职业目标，自动生成 AI 个性化成长路径。
-        </p>
-
-        <div class="hero-actions">
-          <button class="primary-btn" id="heroGenerateBtn" type="button">生成我的 AI 成长方案</button>
-          <a class="secondary-link" href="#plannerSection">直接查看学习路径</a>
-        </div>
-
-        <div class="hero-metrics">
-          <div class="metric-chip">
-            <span class="metric-value" id="heroHours">0h</span>
-            <span class="metric-label">每周学习预算</span>
-          </div>
-          <div class="metric-chip">
-            <span class="metric-value" id="heroFit">0%</span>
-            <span class="metric-label">目标匹配度</span>
-          </div>
-          <div class="metric-chip">
-            <span class="metric-value" id="heroGaps">0</span>
-            <span class="metric-label">高优先级差距</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="hero-card glass-card">
-        <div class="hero-card-top">
-          <span class="status-dot"></span>
-          <span>Growth AI 决策台</span>
-        </div>
-        <div id="aiConsole" class="ai-console"></div>
-      </div>
-    </header>
-
-    <main class="shell app-layout">
-      <aside class="control-column">
-        <section class="glass-card panel workspace-panel">
-          <div class="panel-heading">
-            <p class="eyebrow">Workspace</p>
-            <h2>我的数据库</h2>
-            <p>这里会保存每个账号自己的草稿、历史方案和最近一次 AI 生成结果。</p>
-          </div>
-          <div id="workspaceSummary" class="workspace-summary"></div>
-          <div class="sub-panel">
-            <div class="sub-panel-head">
-              <h3>历史版本</h3>
-              <p>点击即可回载之前的个人方案</p>
-            </div>
-            <div id="historyList" class="history-list"></div>
-          </div>
-        </section>
-
-        <section class="glass-card panel">
-          <div class="panel-heading">
-            <p class="eyebrow">Step 1</p>
-            <h2>用户工作台</h2>
-            <p>先输入你的专业背景和理想职业，再让 Growth AI 自动拆解能力蓝图。</p>
-          </div>
-
-          <div class="preset-row" id="presetRow"></div>
-
-          <form id="profileForm" class="profile-form">
-            <div class="field-grid">
-              <label class="field">
-                <span>姓名</span>
-                <input id="studentName" name="studentName" type="text" placeholder="例如：张同学">
-              </label>
-
-              <label class="field">
-                <span>年级</span>
-                <select id="studentGrade" name="studentGrade"></select>
-              </label>
-
-              <label class="field">
-                <span>学科大类</span>
-                <select id="studentDiscipline" name="studentDiscipline"></select>
-              </label>
-
-              <label class="field">
-                <span>专业</span>
-                <input id="studentMajor" name="studentMajor" type="text" list="majorSuggestionList" placeholder="例如：社会学、临床医学、数字媒体艺术、机械工程">
-              </label>
-            </div>
-
-            <datalist id="majorSuggestionList"></datalist>
-
-            <div class="field-grid">
-              <label class="field field-wide">
-                <span>目标职业 / 岗位</span>
-                <input id="careerTarget" name="careerTarget" type="text" placeholder="例如：品牌策划、法务、选调生、AI 产品经理、工业设计师">
-              </label>
-            </div>
-
-            <div class="field-grid">
-              <label class="field field-wide">
-                <span>给 AI 的补充说明</span>
-                <textarea id="careerPrompt" name="careerPrompt" rows="3" placeholder="例如：我现在是法学大三，想兼顾考公和法务实习；或者：我是医学专业，但想转向医药数据分析"></textarea>
-              </label>
-            </div>
-
-            <section class="sub-panel">
-              <div class="sub-panel-head">
-                <h3>热门职业建议</h3>
-                <p>点一下即可快速填入目标职业，支持再改</p>
-              </div>
-              <div id="careerSuggestionGrid" class="tag-grid"></div>
-            </section>
-
-            <div class="field-grid">
-              <label class="field field-wide">
-                <span>目标窗口 / 核心结果</span>
-                <textarea id="goalText" name="goalText" rows="3" placeholder="例如：希望在明年春招前完成作品集、拿到 3 次面试机会，或者在半年内完成转专业求职准备"></textarea>
-              </label>
-            </div>
-
-            <div class="slider-grid">
-              <label class="field">
-                <span>距离目标窗口</span>
-                <div class="range-wrap">
-                  <input id="deadlineMonths" name="deadlineMonths" type="range" min="3" max="12" value="6">
-                  <strong id="deadlineValue">6 个月</strong>
-                </div>
-              </label>
-
-              <label class="field">
-                <span>当前精力稳定度</span>
-                <div class="range-wrap">
-                  <input id="energyLevel" name="energyLevel" type="range" min="1" max="5" value="4">
-                  <strong id="energyValue">4 / 5</strong>
-                </div>
-              </label>
-            </div>
-
-            <label class="toggle-row">
-              <input id="examWeek" name="examWeek" type="checkbox">
-              <span>近期包含考试周，系统自动减轻周计划负荷</span>
-            </label>
-
-            <div class="upload-hint">
-              <span class="upload-pill">AI 版 Demo</span>
-              <p>正式版可以继续接入 OCR、简历解析、LLM API 和云端数据库；当前版本已实现本地 AI 推理、个性化路径生成和用户独立数据空间。</p>
-            </div>
-
-            <section class="sub-panel">
-              <div class="sub-panel-head">
-                <h3>课表空档矩阵</h3>
-                <p>单击切换：忙碌 → 可学习 → 高专注</p>
-              </div>
-              <div id="timetableBoard" class="timetable-board"></div>
-              <div class="budget-summary" id="budgetSummary"></div>
-            </section>
-
-            <section class="sub-panel">
-              <div class="sub-panel-head">
-                <h3>经历与隐性能力</h3>
-                <p>让系统识别你没有写进简历标题里的真实能力储备</p>
-              </div>
-              <div id="experienceTags" class="tag-grid"></div>
-            </section>
-
-            <section class="sub-panel">
-              <div class="sub-panel-head">
-                <h3>简历 / 经历文本</h3>
-                <p>Growth AI 会从项目、实习、社团、科研、竞赛与个人描述中抽取能力信号</p>
-              </div>
-              <textarea id="resumeText" name="resumeText" rows="8" placeholder="例如：我参与过课题研究、做过新媒体运营、带过志愿团队，也会一点 Python 和数据分析，希望转向用户研究或策略岗位"></textarea>
-            </section>
-
-            <button class="primary-btn full-width" type="submit">生成 AI 个性化成长方案</button>
-          </form>
-        </section>
-
-        <section class="glass-card panel algorithm-panel">
-          <div class="panel-heading">
-            <p class="eyebrow">Step 2</p>
-            <h2>AI 规划引擎</h2>
-          </div>
-          <div id="algorithmList" class="algorithm-list"></div>
-        </section>
-      </aside>
-
-      <section class="content-column">
-        <section class="glass-card panel" id="dashboardSection">
-          <div class="panel-heading">
-            <p class="eyebrow">Step 3</p>
-            <h2>成长画像总览</h2>
-            <p>系统会先做职业识别、能力估算和时间预算建模，再进入技能差距与路径生成。</p>
-          </div>
-          <div class="stats-grid" id="dashboardStats"></div>
-          <div class="profile-grid">
-            <article class="visual-card">
-              <div class="card-title-row">
-                <h3>能力雷达</h3>
-                <span class="mini-note">当前能力 vs Growth AI 识别出的目标画像</span>
-              </div>
-              <div id="radarChart" class="radar-chart"></div>
-            </article>
-
-            <article class="summary-card">
-              <div class="card-title-row">
-                <h3>画像摘要</h3>
-                <span class="mini-note">Profile Builder 输出</span>
-              </div>
-              <div id="profileSummary" class="summary-list"></div>
-              <div id="strengthTags" class="strength-tags"></div>
-            </article>
-          </div>
-        </section>
-
-        <section class="glass-card panel" id="gapSection">
-          <div class="panel-heading">
-            <p class="eyebrow">Step 4</p>
-            <h2>职业蓝图与能力差距</h2>
-            <p>不论输入的是“后端开发”还是“选调生”，Growth AI 都会自动生成专属能力蓝图并排序差距。</p>
-          </div>
-          <div id="gapOverview" class="gap-overview"></div>
-          <div id="gapList" class="gap-list"></div>
-        </section>
-
-        <section class="glass-card panel" id="plannerSection">
-          <div class="panel-heading">
-            <p class="eyebrow">Step 5</p>
-            <h2>年 / 月 / 周三层成长路径</h2>
-            <p>AI 会把长目标拆成阶段里程碑、月度产出和每周课表可执行任务。</p>
-          </div>
-          <div id="annualRoadmap" class="annual-roadmap"></div>
-          <div id="monthlyPlan" class="monthly-plan"></div>
-          <div class="card-title-row schedule-head">
-            <h3>首周落地课表</h3>
-            <span class="mini-note">自动插入复习节点、成果任务与缓冲时间</span>
-          </div>
-          <div id="weeklySchedule" class="weekly-schedule"></div>
-        </section>
-
-        <section class="glass-card panel" id="resourcesSection">
-          <div class="panel-heading">
-            <p class="eyebrow">Step 6</p>
-            <h2>AI 资源策展</h2>
-            <p>系统会围绕当前最关键的差距生成跨平台资源搜索与推荐理由，让任意职业方向都能得到可解释的学习资源。</p>
-          </div>
-          <div id="resourceBoard" class="resource-board"></div>
-        </section>
-
-        <section class="glass-card panel" id="coachSection">
-          <div class="panel-heading">
-            <p class="eyebrow">Step 7</p>
-            <h2>周回访与动态调整</h2>
-            <p>你可以模拟这一周的完成情况，看看系统如何自动减负、提速或调整重心。</p>
-          </div>
-
-          <div class="coach-controls">
-            <label class="field">
-              <span>本周完成度</span>
-              <div class="range-wrap">
-                <input id="completionRate" type="range" min="20" max="100" value="72">
-                <strong id="completionValue">72%</strong>
-              </div>
-            </label>
-
-            <label class="field">
-              <span>学习阻力</span>
-              <div class="range-wrap">
-                <input id="difficultyRate" type="range" min="10" max="100" value="42">
-                <strong id="difficultyValue">42 / 100</strong>
-              </div>
-            </label>
-
-            <label class="field">
-              <span>自信度</span>
-              <div class="range-wrap">
-                <input id="confidenceRate" type="range" min="10" max="100" value="68">
-                <strong id="confidenceValue">68 / 100</strong>
-              </div>
-            </label>
-          </div>
-
-          <div class="coach-grid">
-            <article class="summary-card">
-              <div class="card-title-row">
-                <h3>调整建议</h3>
-                <span class="mini-note">Progress Coach 输出</span>
-              </div>
-              <div id="coachSummary" class="summary-list"></div>
-            </article>
-            <article class="visual-card">
-              <div class="card-title-row">
-                <h3>成长趋势预测</h3>
-                <span class="mini-note">未来 4 周匹配度变化</span>
-              </div>
-              <div id="coachTrend" class="trend-chart"></div>
-            </article>
-          </div>
-        </section>
-      </section>
-    </main>
   </div>
+</section>
 
-  <div id="toast" class="toast" hidden></div>
+<!-- ═══ Main App ═══ -->
+<div id="appRoot" class="app-shell" style="display:none;">
+  <aside class="sidebar">
+    <div class="brand">Growth <span>AI Studio</span></div>
+    <div class="user-info" id="sidebarUser">—</div>
+    <button class="nav-btn active" data-page="profile"><span>&#9672;</span> 构建个人画像</button>
+    <button class="nav-btn" data-page="target"><span>&#9632;</span> 目标岗位分析</button>
+    <button class="nav-btn" data-page="path"><span>&#9654;</span> 生成学习路径</button>
+    <button class="nav-btn" data-page="resources"><span>&#9671;</span> 推荐学习资源</button>
+    <button class="nav-btn" data-page="checkin"><span>&#9733;</span> 定时回访</button>
+    <div style="margin-top:auto;padding-top:16px;">
+      <button class="nav-btn" onclick="logout()" style="font-size:0.82rem;color:var(--muted);">退出登录</button>
+    </div>
+  </aside>
 
-  <script src="data.js"></script>
-  <script src="app.js"></script>
+  <main class="main-content">
+
+    <!-- Page 1: Profile -->
+    <section class="page active" id="page-profile">
+      <p class="eyebrow">Step 1</p>
+      <h2>构建个人画像</h2>
+      <p style="color:var(--muted);margin-bottom:16px;">上传简历与课程表，AI 通过多轮对话确认你的真实能力水平。</p>
+      <div class="glass-card">
+        <div class="field"><span>简历内容</span><textarea id="resumeInput" rows="5" placeholder="粘贴简历内容，或描述你的教育背景、技能、项目经历、实习经验..."></textarea></div>
+        <div class="field"><span>课程表 / 课余时间（可选）</span><textarea id="scheduleInput" rows="2" placeholder="例如：周一至周五晚上 7-10 点空闲，周末全天可用..."></textarea></div>
+        <button class="primary-btn" onclick="buildProfile()">开始 AI 对话构建画像</button>
+        <div id="profileResult" style="margin-top:16px;"></div>
+      </div>
+      <div class="glass-card" id="profileChat" style="display:none;">
+        <p class="eyebrow">AI 追问确认</p>
+        <div id="chatMessages" style="max-height:300px;overflow-y:auto;"></div>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+          <input id="chatInput" placeholder="输入你的回答..." style="flex:1;" onkeydown="if(event.key==='Enter')sendAnswer()">
+          <button class="primary-btn" onclick="sendAnswer()" style="width:auto;margin:0;">发送</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Page 2: Target -->
+    <section class="page" id="page-target">
+      <p class="eyebrow">Step 2</p>
+      <h2>目标岗位分析</h2>
+      <p style="color:var(--muted);margin-bottom:16px;">输入你想做的岗位，AI 拆解完整技能树并与你当前能力逐项对比。</p>
+      <div class="glass-card">
+        <div class="field"><span>目标岗位</span><input id="targetPosition" placeholder="例如：Java 后端开发工程师（校招）"></div>
+        <div class="field"><span>岗位 JD（可选，粘贴后分析更精准）</span><textarea id="targetJD" rows="3" placeholder="粘贴具体 JD..."></textarea></div>
+        <button class="primary-btn" onclick="analyzeTarget()">分析技能差距</button>
+        <div id="targetResult" style="margin-top:16px;"></div>
+      </div>
+    </section>
+
+    <!-- Page 3: Path -->
+    <section class="page" id="page-path">
+      <p class="eyebrow">Step 3</p>
+      <h2>生成学习路径</h2>
+      <p style="color:var(--muted);margin-bottom:16px;">基于技能差距与课余时间，生成年/月/周三层个性化规划。</p>
+      <div class="glass-card">
+        <div class="field"><span>目标完成时间</span><input id="targetDate" value="2027年春招"></div>
+        <button class="primary-btn" onclick="generatePath()">生成个性化学习路径</button>
+        <div id="pathResult" style="margin-top:16px;"></div>
+      </div>
+    </section>
+
+    <!-- Page 4: Resources -->
+    <section class="page" id="page-resources">
+      <p class="eyebrow">Step 4</p>
+      <h2>推荐全网学习资源</h2>
+      <p style="color:var(--muted);margin-bottom:16px;">AI 根据你的学习路径，从 B站、小红书、GitHub、MOOC 智能筛选最优资源。</p>
+      <div class="glass-card">
+        <p style="color:var(--muted);">资源推荐基于已生成的学习路径和技能差距。请先完成前三个步骤，然后点击下方按钮。</p>
+        <button class="primary-btn" onclick="getResources()" style="margin-top:12px;">智能推荐学习资源</button>
+        <div id="resourcesResult" style="margin-top:16px;"></div>
+      </div>
+    </section>
+
+    <!-- Page 5: Check-in -->
+    <section class="page" id="page-checkin">
+      <p class="eyebrow">Step 5</p>
+      <h2>定时回访</h2>
+      <p style="color:var(--muted);margin-bottom:16px;">AI 每周回访检查学习进度，动态调整后续计划。</p>
+      <div class="glass-card">
+        <p>当前状态：<span class="badge badge-warn" id="checkinStatus">等待首次回访</span></p>
+        <div class="field" style="margin-top:12px;"><span>这周的学习进展如何？</span><textarea id="checkinInput" rows="3" placeholder="告诉 AI 你这周完成了什么、遇到了什么困难..."></textarea></div>
+        <button class="primary-btn" onclick="doCheckin()">提交回访</button>
+        <div id="checkinResult" style="margin-top:16px;"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="app.js"></script>
 </body>
 </html>

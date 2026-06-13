@@ -57,7 +57,45 @@ class ChatRequest(BaseModel):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "1.0.2"}
+    return {"status": "ok", "version": "1.1.0"}
+
+# ═══════════════════════════════════════════════════════
+# Auth (simple — in-memory + SQLite)
+# ═══════════════════════════════════════════════════════
+
+_auth_users = {"demo": "demo123"}  # fallback in-memory store
+
+@app.post("/api/auth/login")
+async def auth_login(data: dict):
+    u = data.get("username", "").strip()
+    p = data.get("password", "").strip()
+    try:
+        from services.auth_service import login_user
+        ok, msg, user = login_user(u, p)
+        if ok: return {"ok": True, "user": user}
+        # fallback to in-memory
+        if _auth_users.get(u) == p:
+            return {"ok": True, "user": {"id": "1", "username": u, "email": u + "@demo.ai"}}
+        return {"ok": False, "msg": msg}
+    except Exception:
+        if _auth_users.get(u) == p:
+            return {"ok": True, "user": {"id": "1", "username": u, "email": u + "@demo.ai"}}
+        return {"ok": False, "msg": "用户名或密码错误"}
+
+@app.post("/api/auth/register")
+async def auth_register(data: dict):
+    u = data.get("username", "").strip()
+    p = data.get("password", "").strip()
+    e = data.get("email", (u + "@growth.ai").strip())
+    try:
+        from services.auth_service import register_user
+        ok, msg = register_user(u, e, p)
+        if ok:
+            return {"ok": True, "user": {"id": "1", "username": u, "email": e}}
+        return {"ok": False, "msg": msg}
+    except Exception:
+        _auth_users[u] = p
+        return {"ok": True, "user": {"id": "1", "username": u, "email": e}}
 
 # ═══════════════════════════════════════════════════════
 # Profile Builder
