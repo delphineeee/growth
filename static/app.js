@@ -236,9 +236,9 @@ async function demoLogin() {
   renderProfileResult();
   renderTargetResult();
   renderPathResult();
-  setTimeout(() => renderCheckinHistory(), 300);
+  setTimeout(() => renderCheckinHistory(), 500);
   // Switch to profile page to show results
-  document.querySelectorAll('.nav-btn[data-page="profile"]')[0].click();
+  switchPage('profile');
 }
 
 function logout() {
@@ -255,6 +255,8 @@ function showApp() {
   if (S.profile) renderProfileResult();
   if (S.gapReport) renderTargetResult();
   if (S.plan) renderPathResult();
+  // Pre-render check-in for demo users
+  if (S.user && S.user.username === '李明') setTimeout(() => renderCheckinHistory(), 600);
 }
 
 // ── About Modal ────────────────────────────────────────
@@ -264,20 +266,21 @@ function toggleAbout() {
 }
 
 // ── Navigation ──────────────────────────────────────────
+function switchPage(targetPage) {
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const targetBtn = document.querySelector('.nav-btn[data-page="' + targetPage + '"]');
+  if (targetBtn) targetBtn.classList.add('active');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const pageEl = document.getElementById('page-' + targetPage);
+  if (pageEl) pageEl.classList.add('active');
+  // Trigger check-in render when switching to checkin page
+  if (targetPage === 'checkin') setTimeout(() => renderCheckinHistory(), 100);
+}
+
 document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
   btn.addEventListener('click', () => {
-    // If clicking resources, redirect to path (merged)
     const target = btn.dataset.page === 'resources' ? 'path' : btn.dataset.page;
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    // Highlight the correct button
-    if (btn.dataset.page === 'resources') {
-      document.querySelector('.nav-btn[data-page="path"]').classList.add('active');
-    } else {
-      btn.classList.add('active');
-    }
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    const pageEl = document.getElementById('page-' + target);
-    if (pageEl) pageEl.classList.add('active');
+    switchPage(target);
   });
 });
 
