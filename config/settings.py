@@ -9,10 +9,10 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 class Settings(BaseSettings):
     # ── DeepSeek API ──
-    DEEPSEEK_API_KEY: str = ""
-    DEEPSEEK_BASE_URL: str = "https://api.deepseek.com/v1"
-    LLM_MODEL: str = "deepseek-chat"
-    EMBEDDING_MODEL: str = "deepseek-chat"  # DeepSeek 暂用 chat model 做嵌入；正式版用专用 embedding
+    DEEPSEEK_API_KEY: str = os.environ.get("DEEPSEEK_API_KEY", "")
+    DEEPSEEK_BASE_URL: str = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
+    LLM_MODEL: str = os.environ.get("LLM_MODEL", "deepseek-chat")
+    EMBEDDING_MODEL: str = os.environ.get("EMBEDDING_MODEL", "deepseek-chat")
 
     # ── LLM 参数 ──
     LLM_TEMPERATURE_LIGHT: float = 0.0    # 意图分类 / 标签提取
