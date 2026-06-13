@@ -26,17 +26,20 @@
     .badge-warn { background: var(--warm-soft); color: var(--warm); }
     textarea, input[type=text], input[type=password] { width: 100%; border: 1px solid var(--line); background: rgba(255,255,255,0.9); border-radius: 14px; padding: 12px 14px; font: inherit; }
     textarea { resize: vertical; min-height: 80px; }
+    input[type=file] { font: inherit; }
     .field { margin-bottom: 12px; }
     .field span { display: block; font-weight: 700; font-size: 0.9rem; margin-bottom: 6px; color: var(--ink); }
+    .inline-edit { border: 1px dashed var(--accent); background: rgba(15,133,118,0.02); border-radius: 8px; padding: 6px 10px; margin: 2px 0; font: inherit; font-size: 0.88rem; width: auto; }
     .auth-shell { min-height: 100vh; display: grid; place-items: center; padding: 20px 0; }
     .auth-card { display: grid; grid-template-columns: 1.2fr 0.86fr; gap: 24px; padding: 28px; border-radius: var(--radius-xl); }
     .primary-btn { appearance: none; border: none; border-radius: 999px; background: linear-gradient(135deg, var(--accent), var(--accent-strong)); color: white; padding: 14px 20px; font-size: 0.95rem; font-weight: 700; cursor: pointer; box-shadow: 0 14px 28px rgba(11,92,83,0.26); transition: transform 180ms ease; width: 100%; margin-top: 8px; }
     .primary-btn:hover { transform: translateY(-2px); }
+    .small-btn { appearance: none; border: 1px solid var(--line); border-radius: 20px; background: rgba(255,255,255,0.8); color: var(--ink); padding: 6px 14px; font: inherit; font-size: 0.8rem; cursor: pointer; margin: 4px; }
     .secondary-link { display: inline-flex; justify-content: center; align-items: center; border-radius: 999px; color: var(--ink); padding: 13px 18px; background: rgba(255,255,255,0.68); border: 1px solid rgba(22,50,47,0.08); cursor: pointer; font: inherit; width: 100%; margin-top: 8px; }
     .auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 18px; }
     .auth-tab { appearance: none; border: 1px solid rgba(22,50,47,0.08); border-radius: 16px; padding: 12px; background: rgba(255,255,255,0.8); color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; transition: all 180ms ease; }
     .auth-tab.is-active { background: linear-gradient(135deg, rgba(15,133,118,0.12), rgba(255,255,255,0.94)); border-color: rgba(15,133,118,0.3); }
-    @media (max-width: 768px) { .app-shell { flex-direction: column; } .sidebar { width: 100%; padding: 12px; flex-direction: row; flex-wrap: wrap; gap: 4px; } .sidebar .brand { margin-bottom: 0; margin-right: auto; } .nav-btn { width: auto; font-size: 0.75rem; padding: 8px 10px; } .main-content { padding: 16px; } .auth-card { grid-template-columns: 1fr; } }
+    @media (max-width: 768px) { .app-shell { flex-direction: column; } .sidebar { width: 100%; padding: 12px; flex-direction: row; flex-wrap: wrap; gap: 4px; } .sidebar .brand { margin:0 auto 0 0; } .nav-btn { width: auto; font-size: 0.72rem; padding: 8px 10px; } .main-content { padding: 16px; } .auth-card { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -51,9 +54,9 @@
       <h1>让每个学生都有自己的<br>AI 职业成长空间</h1>
       <p class="hero-description">上传简历和课程表，设定目标岗位，AI 自动生成个性化学习路径并推荐全网资源，定时回访追踪成长进度。</p>
       <div class="auth-feature-list">
-        <article><strong>AI 构建个人画像</strong><p>上传简历与课表，多轮对话确认真实能力。</p></article>
-        <article><strong>目标岗位技能拆解</strong><p>输入目标岗位，AI 逐个拆解所需技能并对比差距。</p></article>
-        <article><strong>三层学习路径</strong><p>年/月/周层层规划，精确到每天学什么、用什么资源。</p></article>
+        <article><strong>AI 构建个人画像</strong><p>上传简历与课表（PDF/Word/图片/文本），多轮对话确认真实能力。</p></article>
+        <article><strong>目标岗位技能拆解</strong><p>输入目标岗位，AI 逐个拆解所需技能并对比差距。支持手动调整。</p></article>
+        <article><strong>三层学习路径</strong><p>年/月/周层层规划，根据目标日期动态计算时间跨度。</p></article>
       </div>
     </div>
     <div class="auth-panel">
@@ -67,8 +70,8 @@
         <label class="field"><span>密码</span><input id="authPass" type="password" placeholder="至少 6 个字符" required></label>
         <button type="submit" class="primary-btn" id="authBtn">登录</button>
       </form>
-      <button class="secondary-link" onclick="demoLogin()">一键体验演示账号</button>
-      <p class="auth-note">提示：用户数据独立存储，每位用户拥有自己的画像、分析和学习路径。</p>
+      <button class="secondary-link" onclick="demoLogin()" style="margin-top:10px;">一键体验演示账号（预加载最佳效果）</button>
+      <p class="auth-note">提示：演示账号已预置完整数据，适合录屏展示。普通用户数据保存在浏览器本地。</p>
     </div>
   </div>
 </section>
@@ -94,9 +97,11 @@
     <section class="page active" id="page-profile">
       <p class="eyebrow">Step 1</p>
       <h2>构建个人画像</h2>
-      <p style="color:var(--muted);margin-bottom:16px;">上传简历与课程表，AI 通过多轮对话确认你的真实能力水平。</p>
+      <p style="color:var(--muted);margin-bottom:16px;">上传简历（支持 PDF / Word / 图片 / 文本），AI 通过多轮对话确认你的真实能力。</p>
       <div class="glass-card">
-        <div class="field"><span>简历内容</span><textarea id="resumeInput" rows="5" placeholder="粘贴简历内容，或描述你的教育背景、技能、项目经历、实习经验..."></textarea></div>
+        <div class="field"><span>上传简历文件（可选）</span><input type="file" id="resumeFile" accept=".pdf,.docx,.txt,.png,.jpg,.jpeg" onchange="handleFileUpload()"></div>
+        <div id="filePreview" style="margin-bottom:12px;padding:10px;background:rgba(255,255,255,0.5);border-radius:10px;font-size:0.82rem;color:var(--muted);display:none;"></div>
+        <div class="field"><span>或直接输入简历内容</span><textarea id="resumeInput" rows="5" placeholder="粘贴简历内容，或描述你的教育背景、技能、项目经历、实习经验..."></textarea></div>
         <div class="field"><span>课程表 / 课余时间（可选）</span><textarea id="scheduleInput" rows="2" placeholder="例如：周一至周五晚上 7-10 点空闲，周末全天可用..."></textarea></div>
         <button class="primary-btn" onclick="buildProfile()">开始 AI 对话构建画像</button>
         <div id="profileResult" style="margin-top:16px;"></div>
@@ -115,12 +120,13 @@
     <section class="page" id="page-target">
       <p class="eyebrow">Step 2</p>
       <h2>目标岗位分析</h2>
-      <p style="color:var(--muted);margin-bottom:16px;">输入你想做的岗位，AI 拆解完整技能树并与你当前能力逐项对比。</p>
+      <p style="color:var(--muted);margin-bottom:16px;">输入目标岗位，AI 拆解技能树并对比差距。你可以手动调整任何分析结果。</p>
       <div class="glass-card">
         <div class="field"><span>目标岗位</span><input id="targetPosition" placeholder="例如：Java 后端开发工程师（校招）"></div>
-        <div class="field"><span>岗位 JD（可选，粘贴后分析更精准）</span><textarea id="targetJD" rows="3" placeholder="粘贴具体 JD..."></textarea></div>
+        <div class="field"><span>岗位 JD（可选）</span><textarea id="targetJD" rows="3" placeholder="粘贴具体 JD 以获取更精准的分析..."></textarea></div>
         <button class="primary-btn" onclick="analyzeTarget()">分析技能差距</button>
         <div id="targetResult" style="margin-top:16px;"></div>
+        <p style="font-size:0.8rem;color:var(--muted);margin-top:8px;">点击分析结果中的数值可以直接修改，修改后会影响后续学习路径生成。</p>
       </div>
     </section>
 
@@ -128,9 +134,10 @@
     <section class="page" id="page-path">
       <p class="eyebrow">Step 3</p>
       <h2>生成学习路径</h2>
-      <p style="color:var(--muted);margin-bottom:16px;">基于技能差距与课余时间，生成年/月/周三层个性化规划。</p>
+      <p style="color:var(--muted);margin-bottom:16px;">AI 根据目标日期动态计算学习周期，生成年/月/周三层规划。</p>
       <div class="glass-card">
         <div class="field"><span>目标完成时间</span><input id="targetDate" value="2027年春招"></div>
+        <p style="font-size:0.8rem;color:var(--muted);">系统会自动根据目标日期计算总周数。如输入"2029年春招"，会计算从现在到2029年3月的实际周数。</p>
         <button class="primary-btn" onclick="generatePath()">生成个性化学习路径</button>
         <div id="pathResult" style="margin-top:16px;"></div>
       </div>
@@ -142,7 +149,7 @@
       <h2>推荐全网学习资源</h2>
       <p style="color:var(--muted);margin-bottom:16px;">AI 根据你的学习路径，从 B站、小红书、GitHub、MOOC 智能筛选最优资源。</p>
       <div class="glass-card">
-        <p style="color:var(--muted);">资源推荐基于已生成的学习路径和技能差距。请先完成前三个步骤，然后点击下方按钮。</p>
+        <p style="color:var(--muted);">资源推荐基于已生成的学习路径和技能差距。请先完成前三个步骤。</p>
         <button class="primary-btn" onclick="getResources()" style="margin-top:12px;">智能推荐学习资源</button>
         <div id="resourcesResult" style="margin-top:16px;"></div>
       </div>
