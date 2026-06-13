@@ -11,12 +11,17 @@ from config.settings import get_settings
 
 class DeepSeekClient:
     def __init__(self):
+        import os as _os
         cfg = get_settings()
+        # 优先读环境变量（Railway 部署），fallback 到 Settings
+        api_key = _os.environ.get("DEEPSEEK_API_KEY") or cfg.DEEPSEEK_API_KEY
+        base_url = _os.environ.get("DEEPSEEK_BASE_URL") or cfg.DEEPSEEK_BASE_URL
+        model = _os.environ.get("LLM_MODEL") or cfg.LLM_MODEL
         self.client = OpenAI(
-            api_key=cfg.DEEPSEEK_API_KEY,
-            base_url=cfg.DEEPSEEK_BASE_URL,
+            api_key=api_key,
+            base_url=base_url,
         )
-        self.model = cfg.LLM_MODEL
+        self.model = model
         self.max_retries = 3
 
     def _build_messages(self, system_prompt: str, user_content: str) -> List[Dict]:

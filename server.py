@@ -57,7 +57,7 @@ class ChatRequest(BaseModel):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "1.0.0"}
+    return {"status": "ok", "version": "1.0.2"}
 
 # ═══════════════════════════════════════════════════════
 # Profile Builder
