@@ -12,9 +12,24 @@ const S = {
   gapReport: LS.get('gapReport') || null,
   plan: LS.get('plan') || null,
   profileState: null,
+  _pendingRequest: null, // AbortController for cancellation
 };
 
 const API = '/api';
+const API_TIMEOUT = 120000; // 2 min timeout for AI calls
+
+// ── Error / Retry helper ──────────────────────────────
+function showError(el, msg, retryFn) {
+  const msgs = {
+    'SERVER_COLD': '服务器正在冷启动（免费版约30-60秒），请稍后点击重试。',
+    'TIMEOUT': '请求超时（AI 生成需要时间，最长等待2分钟）。移动端请勿切出浏览器。',
+  };
+  el.innerHTML = '<div style="padding:16px;background:var(--warm-soft);border-radius:12px;">'
+    + '<p style="color:var(--warm);margin:0 0 8px 0;">' + (msgs[msg] || msg) + '</p>'
+    + (retryFn ? '<button class="small-btn" onclick="(' + retryFn.toString() + ')()">重试</button>' : '')
+    + '<p style="margin:12px 0 0 0;font-size:0.78rem;color:var(--muted);">提示：使用演示账号（demo/demo2026）可跳过 AI 等待，秒出结果。</p>'
+    + '</div>';
+}
 
 // ── Markdown strip ────────────────────────────────────
 function stripMD(text) {
@@ -46,15 +61,31 @@ function calcWeeks(targetDateStr) {
   return { weeks, year: target.getFullYear(), month: targetMonth, dateStr: target.getFullYear() + '年' + targetMonth + '月' };
 }
 
-async function api(path, body) {
-  const r = await fetch(API + path, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (r.status === 502 || r.status === 503) throw new Error('SERVER_COLD');
-  if (!r.ok) throw new Error(await r.text().then(t => t.slice(0, 200)));
-  return r.json();
+async function api(path, body, timeoutMs = API_TIMEOUT) {
+  // Cancel any previous pending request
+  if (S._pendingRequest) { S._pendingRequest.abort(); }
+  const controller = new AbortController();
+  S._pendingRequest = controller;
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const r = await fetch(API + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    S._pendingRequest = null;
+    if (r.status === 502 || r.status === 503) throw new Error('SERVER_COLD');
+    if (!r.ok) throw new Error(await r.text().then(t => t.slice(0, 200)));
+    return r.json();
+  } catch (e) {
+    clearTimeout(timer);
+    S._pendingRequest = null;
+    if (e.name === 'AbortError') throw new Error('TIMEOUT');
+    throw e;
+  }
 }
 
 // ── File upload ────────────────────────────────────────
@@ -261,8 +292,7 @@ async function buildProfile() {
       ).join('');
     }
   } catch (e) {
-    if (e.message === 'SERVER_COLD') el.innerHTML = '<p style="color:var(--warm);">服务器正在冷启动（免费版约30秒），请稍后点击按钮重试。</p>';
-    else el.innerHTML = '<p style="color:var(--danger);">连接失败：' + e.message + '</p>';
+    showError(el, e.message, buildProfile);
   }
 }
 
@@ -322,8 +352,7 @@ async function analyzeTarget() {
     el.innerHTML = '<p style="font-size:1.5rem;font-weight:700;color:var(--accent-strong);">匹配度：' + (r.overall_match || 0) + '%</p>';
     renderTargetResult();
   } catch (e) {
-    if (e.message === 'SERVER_COLD') el.innerHTML = '<p style="color:var(--warm);">服务器冷启动中，请稍后重试。</p>';
-    else el.innerHTML = '<p style="color:var(--danger);">连接失败：' + e.message + '</p>';
+    showError(el, e.message, analyzeTarget);
   }
 }
 
@@ -378,8 +407,7 @@ async function generatePath() {
     S.plan = r.growth_plan || {}; LS.set('plan', S.plan);
     renderPathResult();
   } catch (e) {
-    if (e.message === 'SERVER_COLD') el.innerHTML = '<p style="color:var(--warm);">服务器冷启动中，请稍后重试。</p>';
-    else el.innerHTML = '<p style="color:var(--danger);">连接失败：' + e.message + '</p>';
+    showError(el, e.message, generatePath);
   }
 }
 
@@ -483,8 +511,7 @@ async function doCheckin() {
     document.getElementById('checkinStatus').textContent = '已回访';
     document.getElementById('checkinStatus').className = 'badge badge-ok';
   } catch (e) {
-    if (e.message === 'SERVER_COLD') el.innerHTML = '<p style="color:var(--warm);">服务器冷启动中，请稍后重试。</p>';
-    else el.innerHTML = '<p style="color:var(--danger);">连接失败：' + e.message + '</p>';
+    showError(el, e.message, doCheckin);
   }
 }
 
