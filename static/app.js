@@ -382,9 +382,9 @@ function renderTargetResult() {
     const sev = g.severity === 'critical' ? 'badge-warn' : (g.severity === 'moderate' ? 'badge' : 'badge-ok');
     html += '<div class="gap-row" id="gap-' + i + '">';
     html += '<div style="flex:1;"><strong>' + g.skill_name + '</strong><br>';
-    html += '当前 <input class="inline-edit" type="number" value="' + g.current_level + '" style="width:50px;" onchange="updateGap(' + i + ',\'current_level\',this.value)">% → ';
-    html += '目标 <input class="inline-edit" type="number" value="' + g.target_level + '" style="width:50px;" onchange="updateGap(' + i + ',\'target_level\',this.value)">% · ';
-    html += '重要性 <input class="inline-edit" type="number" value="' + g.importance + '" style="width:50px;" step="0.1" onchange="updateGap(' + i + ',\'importance\',this.value)">';
+    html += '当前 <input class="inline-edit" type="number" value="' + g.current_level + '" onchange="updateGap(' + i + ',\'current_level\',this.value)">% → ';
+    html += '目标 <input class="inline-edit" type="number" value="' + g.target_level + '" onchange="updateGap(' + i + ',\'target_level\',this.value)">% · ';
+    html += '重要性 <input class="inline-edit" type="number" value="' + g.importance + '" step="0.1" onchange="updateGap(' + i + ',\'importance\',this.value)">';
     html += '</div>';
     html += '<span class="badge ' + sev + '">' + g.severity + '</span>';
     html += '</div>';
