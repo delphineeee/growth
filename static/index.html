@@ -33,9 +33,10 @@
     input[type=number]::-webkit-outer-spin-button { opacity: 1; }
     .field { margin-bottom: 12px; }
     .field span { display: block; font-weight: 700; font-size: 0.9rem; margin-bottom: 6px; color: var(--ink); }
-    .inline-edit { border: 1px dashed var(--accent); background: rgba(15,133,118,0.02); border-radius: 8px; padding: 6px 8px; margin: 2px 0; font: inherit; font-size: 0.85rem; width: 55px; min-width: 45px; text-align: center; }
-    .gap-row { flex-wrap: wrap; gap: 6px; }
-    .gap-row > div:first-child { min-width: 0; flex: 1 1 auto; }
+    .inline-edit { border: 1px dashed var(--accent); background: rgba(15,133,118,0.04); border-radius: 8px; padding: 5px 6px; margin: 1px 2px; font: inherit; font-size: 0.85rem; width: 52px; text-align: center; vertical-align: middle; }
+    .gap-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; margin: 6px 0; background: rgba(255,255,255,0.5); border-radius: 12px; border: 1px solid var(--line); font-size: 0.9rem; gap: 8px; overflow-x: auto; }
+    .gap-row > div:first-child { flex: 1 1 0; min-width: 180px; }
+    .gap-row .badge { flex-shrink: 0; }
     .auth-shell { min-height: 100vh; display: grid; place-items: center; padding: 20px 0; }
     .auth-card { display: grid; grid-template-columns: 1.2fr 0.86fr; gap: 24px; padding: 28px; border-radius: var(--radius-xl); }
     .primary-btn { appearance: none; border: none; border-radius: 999px; background: linear-gradient(135deg, var(--accent), var(--accent-strong)); color: white; padding: 14px 20px; font-size: 0.95rem; font-weight: 700; cursor: pointer; box-shadow: 0 14px 28px rgba(11,92,83,0.26); transition: transform 180ms ease; width: 100%; margin-top: 8px; }
