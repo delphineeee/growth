@@ -64,16 +64,16 @@ async def health():
 # ═══════════════════════════════════════════════════════
 
 @app.post("/api/profile/build")
-async def build_profile(req: ProfileRequest):
+async def build_profile(data: dict):
     """解析简历 → 追问对话 → 生成画像"""
     try:
         from graphs.profile_graph import create_profile_graph
 
         graph = create_profile_graph()
         state = {
-            "user_id": req.user_id,
-            "resume_text": req.resume_text,
-            "schedule_text": req.schedule_text,
+            "user_id": data.get("user_id", "demo"),
+            "resume_text": data.get("resume_text", ""),
+            "schedule_text": data.get("schedule_text", ""),
             "parsed_resume": None, "parsed_schedule": None,
             "conversation_history": [], "current_question": "",
             "user_answer": "", "profile_json": None, "missing_info": [],
@@ -96,14 +96,14 @@ async def build_profile(req: ProfileRequest):
 # ═══════════════════════════════════════════════════════
 
 @app.post("/api/analyze")
-async def analyze_gaps(req: GapAnalysisRequest):
+async def analyze_gaps(data: dict):
     """目标岗位技能树 + 差距分析"""
     try:
         from agents.target_analyst import TargetAnalystAgent
 
         agent = TargetAnalystAgent()
-        skill_tree = agent.build_skill_tree(req.position_name, req.jd_text)
-        gap_result = agent.analyze_gaps(req.profile, skill_tree)
+        skill_tree = agent.build_skill_tree(data.get("position_name", ""), data.get("jd_text", ""))
+        gap_result = agent.analyze_gaps(data.get("profile", {}), skill_tree)
 
         return {
             "success": True,
@@ -120,7 +120,7 @@ async def analyze_gaps(req: GapAnalysisRequest):
 # ═══════════════════════════════════════════════════════
 
 @app.post("/api/plan/generate")
-async def generate_plan(req: PlanRequest):
+async def generate_plan(data: dict):
     """生成年/月/周三层学习路径"""
     try:
         from graphs.growth_plan_graph import create_growth_plan_graph
@@ -128,10 +128,10 @@ async def generate_plan(req: PlanRequest):
         graph = create_growth_plan_graph()
         state = {
             "user_id": "api_user",
-            "profile": req.profile,
-            "target_position": req.position_name,
+            "profile": data.get("profile", {}),
+            "target_position": data.get("position_name", ""),
             "target_jd": "",
-            "target_completion_date": req.target_date,
+            "target_completion_date": data.get("target_date", "6个月后"),
             "gap_report": None, "growth_plan": None, "milestones": None,
             "plan_valid": False, "validation_feedback": "",
             "messages": [], "next_step": "parse_input", "error": None,
@@ -156,18 +156,18 @@ async def generate_plan(req: PlanRequest):
 # ═══════════════════════════════════════════════════════
 
 @app.post("/api/chat")
-async def chat(req: ChatRequest):
+async def chat(data: dict):
     """通用 AI 对话"""
     try:
         from utils.llm import get_llm
         llm = get_llm()
 
-        context = f"用户画像: {json.dumps(req.profile or {}, ensure_ascii=False)}\n"
-        context += f"技能差距: {json.dumps(req.gap_report or [], ensure_ascii=False)}"
+        context = f"用户画像: {json.dumps(data.get('profile', {}) or {}, ensure_ascii=False)}\n"
+        context += f"技能差距: {json.dumps(data.get('gap_report', []) or [], ensure_ascii=False)}"
 
         response = llm.chat(
             system_prompt="你是 Growth AI Studio 的职业成长助手。用友好、鼓励的语气回复学生的问题。",
-            user_content=f"上下文：{context}\n\n用户消息：{req.message}",
+            user_content=f"上下文：{context}\n\n用户消息：{data.get('message', '')}",
             temperature=0.7,
             max_tokens=1024,
         )
