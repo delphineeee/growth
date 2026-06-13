@@ -1,0 +1,9 @@
+# Railway / Nixpacks build config — 指定为 Python 应用
+[phases.setup]
+nixPkgs = ["python312"]
+
+[phases.install]
+cmds = ["pip install -r requirements.txt"]
+
+[start]
+cmd = "python server.py"
