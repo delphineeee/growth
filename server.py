@@ -230,6 +230,14 @@ app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
 # ═══════════════════════════════════════════════════════
 
 if __name__ == "__main__":
-    import uvicorn
+    import uvicorn, traceback
+    print("=== Growth AI Studio starting ===", flush=True)
+    print(f"Python: {sys.version}", flush=True)
+    # Check critical deps
+    for mod in ["fastapi", "uvicorn", "langgraph", "openai", "chromadb"]:
+        try: __import__(mod); print(f"  [{mod}] OK", flush=True)
+        except Exception as e: print(f"  [{mod}] MISSING: {e}", flush=True)
+    print(f"PORT env: {os.environ.get('PORT', 'not set')}", flush=True)
     port = int(os.environ.get("PORT", 8000))
+    print(f"Listening on 0.0.0.0:{port}", flush=True)
     uvicorn.run(app, host="0.0.0.0", port=port)
