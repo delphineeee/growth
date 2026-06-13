@@ -10,11 +10,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
 
-# Add growth project to path so we can reuse agents
-GROWTH_DIR = Path(__file__).resolve().parent.parent / "growth"
-sys.path.insert(0, str(GROWTH_DIR))
+# Project root = growth-unified (self-contained, all modules local)
+PROJECT_ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
-STATIC_DIR = Path(__file__).resolve().parent / "static"
+STATIC_DIR = PROJECT_ROOT / "static"
 
 app = FastAPI(title="Growth AI Studio API", version="1.0.0")
 
