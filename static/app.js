@@ -220,6 +220,18 @@ async function demoLogin() {
   LS.set('registered_users', (LS.get('registered_users') || []).concat([{ u: 'demo', p: 'demo2026' }]));
   showApp();
 
+  // Fill in demo input fields
+  setTimeout(() => {
+    const ri = document.getElementById('resumeInput');
+    if (ri) ri.value = DEMO_DATA.resumeText || '';
+    const ti = document.getElementById('targetPosition');
+    if (ti) ti.value = '字节跳动 后端开发工程师（校招）';
+    const td = document.getElementById('targetJD');
+    if (td) td.value = DEMO_DATA.jdText || '';
+    const si = document.getElementById('scheduleInput');
+    if (si) si.value = DEMO_DATA.scheduleText || '';
+  }, 200);
+
   // Render demo data instantly on all pages
   renderProfileResult();
   renderTargetResult();
@@ -416,18 +428,41 @@ function renderPathResult() {
   const el = document.getElementById('pathResult');
   const yp = (S.plan.yearly_plan || S.plan);
   el.innerHTML = '<p style="font-weight:700;color:var(--accent-strong);">学习路径已生成</p>';
-  el.innerHTML += '<p>总时长：<strong>' + (yp.total_weeks || '?') + ' 周</strong></p>';
+  el.innerHTML += '<p>总时长：<strong>' + (yp.total_weeks || '?') + ' 周</strong> · ' + (yp.phases || []).length + ' 个阶段</p>';
 
+  // ── Phases ──
   (yp.phases || []).forEach(p => {
-    el.innerHTML += '<div style="margin:8px 0;padding:12px 16px;background:rgba(255,255,255,0.6);border-radius:12px;border:1px solid var(--line);">'
-      + '<strong>Phase ' + (p.phase_number || '') + ' — ' + (p.title || '') + '</strong>（第' + (p.start_week || '') + '-' + (p.end_week || '') + '周）<br>'
-      + (p.description || '') + '</div>';
+    el.innerHTML += '<div style="margin:10px 0;padding:14px 18px;background:linear-gradient(135deg,rgba(15,133,118,0.06),rgba(255,255,255,0.8));border-radius:14px;border:1px solid rgba(15,133,118,0.12);">'
+      + '<strong style="font-size:0.95rem;">Phase ' + (p.phase_number || '') + ' — ' + (p.title || '') + '</strong>'
+      + '<span style="color:var(--muted);font-size:0.82rem;margin-left:8px;">第' + (p.start_week || '') + '-' + (p.end_week || '') + '周</span><br>'
+      + '<span style="font-size:0.88rem;color:var(--muted);">' + (p.description || '') + '</span></div>';
   });
 
+  // ── Weekly Plans ──
+  const weekPlans = yp.weekly_plans || [];
+  if (weekPlans.length > 0) {
+    el.innerHTML += '<p style="margin-top:16px;font-weight:700;color:var(--accent-strong);">周计划示例（第1-4周）</p>';
+    weekPlans.slice(0, 4).forEach(wp => {
+      el.innerHTML += '<details style="margin:8px 0;background:rgba(255,255,255,0.7);border:1px solid var(--line);border-radius:12px;padding:12px 16px;">'
+        + '<summary style="font-weight:600;cursor:pointer;font-size:0.92rem;">第' + wp.week_number + '周：' + (wp.theme || '') + '（' + (wp.total_minutes || 0) + '分钟）</summary>';
+      (wp.slots || []).forEach(s => {
+        el.innerHTML += '<div style="margin:6px 0;padding:8px 12px;background:rgba(255,255,255,0.4);border-radius:8px;font-size:0.84rem;">'
+          + '<span style="font-weight:600;">' + s.day + ' ' + s.start_time + '</span>'
+          + ' · <span style="color:var(--accent-strong);">' + s.task_description + '</span>'
+          + ' <span style="color:var(--muted);font-size:0.78rem;">(' + s.duration_minutes + '分钟)</span></div>';
+      });
+      if (wp.milestone_this_week) {
+        el.innerHTML += '<p style="margin:8px 0 0 0;font-size:0.82rem;color:var(--accent);">本周里程碑：' + wp.milestone_this_week + '</p>';
+      }
+      el.innerHTML += '</details>';
+    });
+  }
+
+  // ── Milestones ──
   if ((yp.key_milestones || []).length) {
-    el.innerHTML += '<p style="margin-top:12px;font-weight:700;">关键里程碑：</p>';
+    el.innerHTML += '<p style="margin-top:14px;font-weight:700;">关键里程碑</p>';
     (yp.key_milestones || []).forEach(m => {
-      el.innerHTML += '<div style="padding:6px 0;border-bottom:1px solid var(--line);">Week ' + m.week + '：' + m.title + '</div>';
+      el.innerHTML += '<div style="padding:5px 0;border-bottom:1px solid var(--line);font-size:0.85rem;">Week ' + m.week + '：' + m.title + '</div>';
     });
   }
 
@@ -447,52 +482,66 @@ async function getResources() {
 }
 
 function renderResourcesInline(container, skillNames) {
-  // Generate resource links inline - displayed within the learning path
-  const resourceMap = {
-    'Java': [
-      { name: '黑马程序员 Java 入门教程', url: 'https://www.bilibili.com/video/BV1Cv411372m', platform: 'B站' },
-      { name: 'JavaGuide 面试指南', url: 'https://github.com/Snailclimb/JavaGuide', platform: 'GitHub' },
-    ],
-    'Spring Boot': [
-      { name: 'SpringBoot 最新教程（尚硅谷）', url: 'https://www.bilibili.com/video/BV19K4y1L7MT', platform: 'B站' },
-      { name: 'Spring Boot 官方文档', url: 'https://spring.io/projects/spring-boot', platform: '官网' },
-    ],
+  const directMap = {
     'Redis': [
-      { name: 'Redis 入门到精通（编程不良人）', url: 'https://www.bilibili.com/video/BV1Rv41177Af', platform: 'B站' },
+      { name: 'Redis入门教程（黑马程序员）', url: 'https://www.bilibili.com/video/BV1Rv41177Af', platform: 'B站', note: '136集，从零到实战' },
+      { name: 'Redis核心数据结构详解（小林coding）', url: 'https://xiaolincoding.com/redis/', platform: '小林coding', note: '图解Redis底层原理' },
+      { name: 'Redisson分布式锁实战', url: 'https://github.com/redisson/redisson', platform: 'GitHub', note: '17.4k Star，企业级分布式锁' },
     ],
-    'MySQL': [
-      { name: 'MySQL 实战45讲', url: 'https://time.geekbang.org/column/intro/100020801', platform: '极客时间' },
-      { name: 'LeetCode SQL 题库', url: 'https://leetcode.cn/problemset/database/', platform: 'LeetCode' },
+    '分布式系统': [
+      { name: 'Spring Cloud微服务教程（尚硅谷）', url: 'https://www.bilibili.com/video/BV1LQ4y127n4', platform: 'B站', note: '2024最新版，含Nacos+Gateway+Sentinel' },
+      { name: 'Spring Cloud Alibaba 实战', url: 'https://github.com/alibaba/spring-cloud-alibaba', platform: 'GitHub', note: '28.6k Star，阿里微服务全家桶' },
+      { name: '分布式系统原理（MIT 6.824中文版）', url: 'https://github.com/chaozh/awesome-distributed-systems', platform: 'GitHub', note: '含Raft/Paxos论文与实现' },
     ],
-    'Python': [
-      { name: 'Python 数据分析（黑马程序员）', url: 'https://www.bilibili.com/video/BV1qJ411W7Qs', platform: 'B站' },
+    'Spring Boot 进阶': [
+      { name: 'Spring Security + JWT认证实战', url: 'https://www.bilibili.com/video/BV1mm4y1X7Hc', platform: 'B站', note: '企业级认证鉴权方案' },
+      { name: 'Spring Boot 官方文档中文版', url: 'https://springdoc.cn/spring-boot/', platform: '官方文档', note: '最权威的参考' },
+      { name: 'mall电商项目（Spring Boot版）', url: 'https://github.com/macrozheng/mall', platform: 'GitHub', note: '66k Star，完整电商系统' },
     ],
-    '数据结构': [
-      { name: 'LeetCode 热题100', url: 'https://leetcode.cn/problem-list/2cktkvj/', platform: 'LeetCode' },
-      { name: 'hello-algo 图解数据结构', url: 'https://github.com/krahets/hello-algo', platform: 'GitHub' },
+    '算法与数据结构': [
+      { name: 'LeetCode Hot 100', url: 'https://leetcode.cn/problem-list/2cktkvj/', platform: 'LeetCode', note: '面试必刷100题' },
+      { name: '代码随想录', url: 'https://github.com/youngyangyang04/leetcode-master', platform: 'GitHub', note: '每道题有视频讲解+文字题解' },
+      { name: 'hello-algo 图解数据结构', url: 'https://github.com/krahets/hello-algo', platform: 'GitHub', note: '73k Star，动画图解' },
     ],
-    '算法': [
-      { name: 'LeetCode 热题100', url: 'https://leetcode.cn/problem-list/2cktkvj/', platform: 'LeetCode' },
-      { name: '代码随想录', url: 'https://github.com/youngyangyang04/leetcode-master', platform: 'GitHub' },
+    '操作系统': [
+      { name: '王道计算机考研 操作系统', url: 'https://www.bilibili.com/video/BV1YE411D7nH', platform: 'B站', note: '经典考研课，面试够用' },
+      { name: '《深入理解计算机系统》CSAPP', url: 'https://github.com/huangrt01/CSAPP', platform: 'GitHub', note: '程序员必读经典，含中文笔记' },
+      { name: '操作系统面试突击（JavaGuide）', url: 'https://javaguide.cn/cs-basics/operating-system/operating-system-basic-questions-01.html', platform: 'JavaGuide', note: '高频面试题系统总结' },
+    ],
+    'MySQL 进阶': [
+      { name: 'MySQL实战45讲（丁奇）', url: 'https://time.geekbang.org/column/intro/100020801', platform: '极客时间', note: '阿里P9的MySQL心法' },
+      { name: 'MySQL索引优化实战（尚硅谷）', url: 'https://www.bilibili.com/video/BV1Kr4y1i7ru', platform: 'B站', note: 'Explain执行计划全解析' },
+      { name: 'LeetCode SQL题库', url: 'https://leetcode.cn/problemset/database/', platform: 'LeetCode', note: '面试SQL真题练习' },
+      { name: 'ShardingSphere分库分表', url: 'https://shardingsphere.apache.org/', platform: '官网', note: '企业级分库分表方案' },
+    ],
+    '项目经验': [
+      { name: '秒杀系统设计（Java版）', url: 'https://github.com/qiurunze123/miaosha', platform: 'GitHub', note: '26k Star，高并发秒杀' },
+      { name: 'RuoYi-Vue 若依后台管理系统', url: 'https://github.com/yangzongzhuan/RuoYi-Vue', platform: 'GitHub', note: 'Spring Boot + Vue，快速上手' },
+      { name: 'Java开源项目推荐合集', url: 'https://github.com/akullpp/awesome-java', platform: 'GitHub', note: '40k Star，Java资源大全' },
+    ],
+    'Java': [
+      { name: 'JavaGuide 面试指南', url: 'https://github.com/Snailclimb/JavaGuide', platform: 'GitHub', note: '145k Star，Java面试必备' },
+      { name: 'CS-Notes 技术面试必备', url: 'https://github.com/CyC2018/CS-Notes', platform: 'GitHub', note: '174k Star，系统学习' },
     ],
   };
 
-  let html = '<p style="font-weight:700;color:var(--accent-strong);margin-top:16px;">推荐学习资源</p>';
-  let found = false;
+  let html = '<p style="font-weight:700;color:var(--accent-strong);margin-top:16px;">推荐学习资源（可点击直达）</p>';
+  let count = 0;
   skillNames.forEach(name => {
-    const resources = resourceMap[name] || [];
+    const resources = directMap[name] || [];
     if (resources.length) {
-      found = true;
-      html += '<p style="margin:8px 0 4px 0;font-weight:600;">' + name + '：</p>';
+      html += '<p style="margin:10px 0 4px 0;font-weight:600;font-size:0.92rem;">' + name + '</p>';
       resources.forEach(r => {
-        html += '<div style="margin:4px 0;padding:8px 12px;background:rgba(255,255,255,0.5);border-radius:8px;font-size:0.85rem;">'
-          + '<span style="color:var(--muted);">[' + r.platform + ']</span> '
-          + '<a href="' + r.url + '" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;font-weight:600;">'
-          + r.name + ' →</a></div>';
+        count++;
+        html += '<div style="margin:3px 0;padding:10px 14px;background:rgba(255,255,255,0.5);border-radius:8px;font-size:0.85rem;display:flex;align-items:center;gap:8px;">'
+          + '<span style="background:var(--accent-soft);color:var(--accent-strong);padding:2px 8px;border-radius:10px;font-size:0.72rem;font-weight:700;white-space:nowrap;">' + r.platform + '</span>'
+          + '<a href="' + r.url + '" target="_blank" rel="noopener" style="color:var(--ink);text-decoration:none;font-weight:600;flex:1;">' + r.name + '</a>'
+          + '<span style="color:var(--muted);font-size:0.78rem;">' + r.note + '</span></div>';
       });
     }
   });
-  if (!found) html += '<p style="color:var(--muted);">AI 将根据你的技能差距生成个性化资源推荐（需要先分析目标岗位）。</p>';
+  if (count === 0) html += '<p style="color:var(--muted);">AI 将根据你的技能差距生成个性化资源推荐。</p>';
+  else html += '<p style="font-size:0.8rem;color:var(--muted);margin-top:8px;">共 ' + count + ' 个资源链接</p>';
   container.innerHTML += html;
 }
 
@@ -517,54 +566,161 @@ async function doCheckin() {
 
 // ═══ Demo pre-loaded data ═════════════════════════════
 const DEMO_DATA = {
+  // Pre-filled input field values
+  resumeText: "姓名：李明\n学校：XX大学 计算机科学与技术专业 大三\nGPA：3.6/4.0\n\n【项目经历】\n1. 校园二手交易平台 2024.09-2024.12\n   后端开发，独立使用Spring Boot + MySQL + Redis开发，实现用户认证、商品发布、订单管理、消息通知等模块。日活用户200+，累计交易量500+单。\n   技术栈：Java, Spring Boot, MyBatis, MySQL, Redis, Docker\n\n2. 智能课表助手 2024.03-2024.06\n   使用Python Flask + Vue.js开发，支持课程导入、冲突检测、自习室推荐。获校级优秀项目奖。\n   技术栈：Python, Flask, Vue.js, SQLite\n\n【实习经历】\nXX科技有限公司 Java开发实习生 2024.07-2024.08\n  参与内部OA系统开发，负责审批流程模块，使用Spring Boot + MyBatis。编写单元测试30+个，代码覆盖率85%以上。\n\n【竞赛获奖】\n· 蓝桥杯程序设计竞赛 省级二等奖\n· 全国大学生数学建模竞赛 省级三等奖\n\n【技能】\n编程语言：Java（熟练）, Python（熟练）, C/C++（了解）\n框架：Spring Boot, MyBatis, Flask\n数据库：MySQL, Redis, SQLite\n工具：Git, Docker, Linux, Postman\n英语：CET-6 520分",
+
+  jdText: "【字节跳动】后端开发工程师 - 2026届校招\n\n岗位职责：\n1. 负责公司核心业务系统的后端设计与开发，支撑亿级用户量\n2. 参与系统架构设计，解决高并发、高可用、数据一致性等挑战\n3. 编写高质量代码，保证系统的稳定性和可扩展性\n4. 参与技术方案评审、代码Review、性能优化\n\n任职要求：\n1. 2026届本科及以上学历，计算机相关专业\n2. 扎实的计算机基础：数据结构、算法、操作系统、计算机网络\n3. 熟练掌握至少一门编程语言（Java/Go/C++），熟悉常用框架\n4. 熟悉MySQL、Redis等数据库，了解分布式系统基本原理\n5. 有实际项目经验，GitHub有开源贡献者优先\n6. 良好的沟通能力和团队协作精神\n\n加分项：\n· 熟悉微服务架构（Spring Cloud / Dubbo）\n· 了解消息队列（Kafka / RocketMQ）\n· 有高并发系统设计经验\n· ACM/ICPC等编程竞赛获奖经历",
+
+  scheduleText: "【2025-2026学年第一学期课程表】\n周一：计算机网络（8:00-9:40），操作系统（10:00-11:40），软件工程（14:00-15:40）\n周二：数据库原理（8:00-9:40），编译原理（10:00-11:40）\n周三：计算机网络（8:00-9:40），操作系统（10:00-11:40）\n周四：数据库原理（8:00-9:40），软件工程（14:00-15:40）\n周五：体育（10:00-11:40）\n\n课余时间：周一至周五 19:00-22:30，周二/周四/周五下午，周六日全天\n考试周：第17-18周",
+
   profile: {
     hard_skills: [
-      { name: "Java", level: 75, category: "编程语言" },
-      { name: "Python", level: 60, category: "编程语言" },
-      { name: "MySQL", level: 55, category: "数据库" },
-      { name: "Spring Boot", level: 40, category: "框架" },
-      { name: "数据结构", level: 65, category: "计算机基础" },
+      { name: "Java", level: 78, category: "编程语言" },
+      { name: "Python", level: 65, category: "编程语言" },
+      { name: "Spring Boot", level: 55, category: "框架" },
+      { name: "MySQL", level: 60, category: "数据库" },
+      { name: "Redis", level: 25, category: "数据库" },
+      { name: "数据结构", level: 70, category: "计算机基础" },
+      { name: "计算机网络", level: 50, category: "计算机基础" },
+      { name: "操作系统", level: 45, category: "计算机基础" },
+      { name: "Git/Docker", level: 55, category: "工具" },
     ],
     soft_skills: [
-      { name: "团队协作", level: 70 },
-      { name: "问题解决", level: 65 },
+      { name: "团队协作", level: 75 },
+      { name: "问题解决", level: 70 },
+      { name: "沟通表达", level: 65 },
     ],
     experiences: [
-      { type: "项目", title: "校园二手交易小程序", description: "独立开发后端API，使用Spring Boot + MySQL，日活200+用户", skills_demonstrated: ["Java", "Spring Boot", "MySQL"], impact: "日活200+" },
-      { type: "竞赛", title: "蓝桥杯程序设计竞赛", description: "省级二等奖", skills_demonstrated: ["Java", "数据结构"], impact: "省级二等奖" },
+      { type: "实习", title: "XX科技 Java开发实习生", description: "参与OA系统审批流程模块开发，Spring Boot + MyBatis，编写30+单元测试", skills_demonstrated: ["Java","Spring Boot","MyBatis"], impact: "代码覆盖率85%+" },
+      { type: "项目", title: "校园二手交易平台", description: "独立开发后端，Spring Boot + MySQL + Redis，实现用户认证、商品发布、订单管理、消息通知", skills_demonstrated: ["Java","Spring Boot","MySQL","Redis"], impact: "日活200+用户，累计500+交易" },
+      { type: "项目", title: "智能课表助手", description: "Python Flask + Vue.js，支持课程导入、冲突检测、自习室推荐", skills_demonstrated: ["Python","Flask","Vue.js"], impact: "校级优秀项目奖" },
+      { type: "竞赛", title: "蓝桥杯程序设计竞赛", description: "算法与数据结构竞赛", skills_demonstrated: ["Java","数据结构"], impact: "省级二等奖" },
     ],
-    strength_tags: ["Java基础扎实", "有完整项目经验", "竞赛经历加分"],
-    weakness_tags: ["Redis未接触", "分布式系统概念薄弱", "算法题量不足"],
-    career_preference: { industries: ["互联网"], roles: ["后端开发"], cities: ["北京", "杭州"] },
-    weekly_free_time_minutes: 1200,
-    profile_summary: "计算机专业大三学生，Java基础扎实，有独立完成小程序后端的项目经验，竞赛获奖。主要短板在Redis、分布式系统和算法题量，适合冲刺大厂后端开发岗位。"
+    strength_tags: ["Java基础扎实", "有实习+项目完整经历", "竞赛获奖", "英语能力强"],
+    weakness_tags: ["Redis仅入门", "分布式系统概念薄弱", "微服务经验不足", "操作系统底层知识欠缺"],
+    career_preference: { industries: ["互联网"], roles: ["后端开发"], cities: ["北京","杭州","深圳"] },
+    weekly_free_time_minutes: 1320,
+    profile_summary: "计算机专业大三学生，Java基础扎实（78分），有科技公司实习经历和独立项目经验，蓝桥杯省级二等奖，英语CET-6 520分。主要短板：Redis仅入门水平、缺乏分布式系统实战、微服务架构经验不足。课余时间充裕（每周22小时），适合系统冲刺大厂后端开发岗位。"
   },
+
   gapReport: [
-    { skill_name: "Redis", current_level: 5, target_level: 80, importance: 0.85, gap_score: 0.638, severity: "critical", category: "数据库", evidence: "简历和项目经验中未涉及Redis", recommended_action: "完成Redis入门课程，动手实现缓存、排行榜等常见场景" },
-    { skill_name: "Spring Boot 进阶", current_level: 40, target_level: 85, importance: 0.9, gap_score: 0.405, severity: "critical", category: "框架", evidence: "仅基础CRUD，未涉及微服务、安全、监控", recommended_action: "学习Spring Cloud微服务架构，完成一个分布式项目" },
-    { skill_name: "算法与数据结构", current_level: 65, target_level: 90, importance: 0.8, gap_score: 0.2, severity: "moderate", category: "计算机基础", evidence: "竞赛有一定基础，但LeetCode刷题量不足（<50题）", recommended_action: "每日刷LeetCode 2-3题，重点攻克动态规划和图论" },
-    { skill_name: "MySQL 进阶", current_level: 55, target_level: 80, importance: 0.75, gap_score: 0.188, severity: "moderate", category: "数据库", evidence: "基础查询OK，索引优化和SQL调优不足", recommended_action: "学习索引原理、慢查询优化，刷LeetCode SQL 50题" },
-    { skill_name: "项目经验", current_level: 50, target_level: 85, importance: 0.85, gap_score: 0.298, severity: "moderate", category: "项目经验", evidence: "仅一个独立项目，缺少团队协作和大型项目经验", recommended_action: "参与开源项目或组队完成一个分布式系统项目" },
+    { skill_name: "Redis", current_level: 25, target_level: 80, importance: 0.88, gap_score: 0.484, severity: "critical", category: "数据库", evidence: "二手交易平台中仅使用Redis做简单缓存（Set/Get），未涉及分布式锁、消息队列、持久化策略", recommended_action: "系统学习Redis五种数据结构深入用法、分布式锁Redisson、缓存击穿/穿透/雪崩解决方案、RDB/AOF持久化" },
+    { skill_name: "分布式系统", current_level: 10, target_level: 75, importance: 0.85, gap_score: 0.553, severity: "critical", category: "系统设计", evidence: "简历中无任何分布式系统相关经验，未接触CAP理论、一致性协议、RPC框架", recommended_action: "学习CAP理论、Raft协议、Spring Cloud微服务架构，动手实现一个分布式项目" },
+    { skill_name: "Spring Boot 进阶", current_level: 55, target_level: 85, importance: 0.9, gap_score: 0.27, severity: "moderate", category: "框架", evidence: "仅基础CRUD开发，未涉及Spring Security、AOP切面、自定义Starter、监控Actuator", recommended_action: "学习Spring Security认证鉴权、AOP日志、自定义注解、Spring Boot Actuator + Prometheus监控" },
+    { skill_name: "算法与数据结构", current_level: 70, target_level: 90, importance: 0.82, gap_score: 0.164, severity: "moderate", category: "计算机基础", evidence: "竞赛有一定基础，但LeetCode刷题量仅约40题，动态规划和图论薄弱", recommended_action: "每日刷LeetCode 2-3题，30天内完成Hot 100 + 剑指Offer，重点攻克DP、DFS/BFS、二叉树" },
+    { skill_name: "操作系统", current_level: 45, target_level: 75, importance: 0.7, gap_score: 0.21, severity: "moderate", category: "计算机基础", evidence: "课程学过但仅理论知识，未深入理解进程调度、内存管理、文件系统实现", recommended_action: "阅读《深入理解计算机系统》关键章节，结合Linux源码理解进程/线程/内存管理" },
+    { skill_name: "MySQL 进阶", current_level: 60, target_level: 85, importance: 0.78, gap_score: 0.195, severity: "moderate", category: "数据库", evidence: "基础CRUD和简单索引OK，但SQL优化、分库分表、MVCC原理不熟", recommended_action: "学习索引原理（B+树）、Explain执行计划分析、MVCC与事务隔离级别、分库分表策略" },
+    { skill_name: "项目经验", current_level: 60, target_level: 90, importance: 0.9, gap_score: 0.27, severity: "moderate", category: "项目经验", evidence: "1个实习+2个项目，但缺乏高并发、分布式项目经验", recommended_action: "完成一个微服务架构项目（Spring Cloud全家桶），一个高并发秒杀项目（Redis+MQ）" },
   ],
+
   plan: {
     yearly_plan: {
-      year_label: "2026-2027春招冲刺",
-      big_goal: "2027年春招拿到大厂后端开发Offer",
-      total_weeks: 36,
+      year_label: "2025-2026春招冲刺",
+      big_goal: "2026年春招拿到大厂后端开发Offer",
+      total_weeks: 28,
       phases: [
-        { phase_number: 1, title: "基础强化", start_week: 1, end_week: 8, theme: "Redis入门 + MySQL进阶 + Spring Boot微服务", description: "系统学习Redis五种数据结构与常见应用场景，掌握MySQL索引优化与慢查询分析，完成Spring Cloud微服务项目搭建。" },
-        { phase_number: 2, title: "项目实战", start_week: 9, end_week: 20, theme: "两个完整项目 + 算法刷题", description: "组队完成一个分布式电商项目，独立完成一个高并发秒杀Demo。每日刷LeetCode 2题，12周完成150题。" },
-        { phase_number: 3, title: "面试冲刺", start_week: 21, end_week: 36, theme: "八股文 + 项目复盘 + 模拟面试", description: "系统复习Java基础、JVM、并发、MySQL、Redis、Spring全家桶面试题。深度复盘项目亮点。用Growth AI面试教练模拟10次面试。" },
+        { phase_number: 1, title: "基础强化月", start_week: 1, end_week: 4, theme: "Redis精通 + 操作系统深入 + MySQL优化", description: "第1-4周集中攻克Redis底层原理与实战，同步复习操作系统核心概念（进程/内存/文件系统），学习MySQL索引优化与SQL调优。目标：Redis水平从25%提升至65%，操作系统从45%提升至65%。" },
+        { phase_number: 2, title: "框架进阶与分布式入门", start_week: 5, end_week: 10, theme: "Spring Cloud微服务 + 分布式理论 + 算法刷题", description: "第5-10周系统学习Spring Cloud全家桶（Nacos/Gateway/Feign/Sentinel），掌握CAP理论与Raft协议，启动每日2题算法刷题计划（重点DP/DFS/二叉树）。目标：完成一个微服务项目，LeetCode刷题70+。" },
+        { phase_number: 3, title: "项目实战双月", start_week: 11, end_week: 18, theme: "高并发秒杀项目 + 微服务项目收尾 + LeetCode 150", description: "第11-18周独立完成高并发秒杀系统（Redis + RocketMQ + 分布式锁），收尾微服务电商项目并部署上线，算法刷题冲刺至150题。目标：简历上新增2个高质量项目，项目经验从60%提升至85%。" },
+        { phase_number: 4, title: "面试冲刺", start_week: 19, end_week: 28, theme: "八股文系统复习 + 项目深度复盘 + 模拟面试", description: "第19-28周系统复习Java/JVM/并发/MySQL/Redis/Spring/分布式面试高频题，深度复盘3个项目亮点形成面经，用Growth AI进行10+次模拟面试。目标：面试通过率80%+，拿到3+offer。" },
       ],
       key_milestones: [
-        { week: 4, title: "完成Redis入门课程，动手实现缓存Demo" },
-        { week: 8, title: "Spring Cloud项目Deploy到服务器" },
-        { week: 14, title: "LeetCode刷题100+，完成秒杀项目" },
-        { week: 20, title: "LeetCode刷题150+，两个完整项目上线GitHub" },
-        { week: 28, title: "完成一轮面试题系统复习" },
-        { week: 36, title: "春招投递，目标5+面试邀请" },
+        { week: 2, title: "Redis五种数据结构+分布式锁动手实战完成" },
+        { week: 4, title: "操作系统核心章节复习完毕，LeetCode SQL 20题完成" },
+        { week: 7, title: "Spring Cloud微服务项目框架搭建完成，Nacos+Gateway联调成功" },
+        { week: 10, title: "LeetCode刷题70+，动态规划专题攻克（20题），微服务项目v1.0上线" },
+        { week: 14, title: "高并发秒杀项目完成（Redis+MQ+分布式锁），LeetCode 120题" },
+        { week: 18, title: "两个项目全部部署上线GitHub，README+压测报告完善，LeetCode 150题" },
+        { week: 22, title: "Java/JVM/并发面试题三轮复习完成，模拟面试5次" },
+        { week: 28, title: "春招投递30+，目标拿到字节/阿里/腾讯至少一个Offer" },
       ],
-      target_match_improvement: { from: 42, to: 78 }
+      weekly_plans: [
+        {
+          week_number: 1, theme: "Redis数据结构与缓存实战",
+          slots: [
+            { day: "周一", start_time: "19:00", duration_minutes: 90, skill_name: "Redis String/Hash", task_description: "看B站Redis教程P1-P8，掌握String和Hash的底层编码（SDS/ziplist/hashtable）及20+常用命令", resource_type: "video", resource_id: "redis_basic_1" },
+            { day: "周二", start_time: "19:00", duration_minutes: 90, skill_name: "Redis List/Set/ZSet", task_description: "学习List/Set/ZSet的底层实现（quicklist/skiplist），动手实现一个简易排行榜Demo", resource_type: "video+project", resource_id: "redis_basic_2" },
+            { day: "周三", start_time: "14:00", duration_minutes: 120, skill_name: "Redis 分布式锁", task_description: "学习Redisson分布式锁原理（watchdog/可重入/公平锁），实现一个防止超卖的库存扣减Demo", resource_type: "project", resource_id: "redis_lock" },
+            { day: "周四", start_time: "19:00", duration_minutes: 60, skill_name: "Redis 持久化", task_description: "学习RDB快照vs AOF日志的优缺点、混合持久化配置、数据恢复实战", resource_type: "article", resource_id: "redis_persist" },
+            { day: "周五", start_time: "19:00", duration_minutes: 90, skill_name: "操作系统", task_description: "复习进程管理：PCB、五状态模型、fork()、孤儿进程与僵尸进程、waitpid", resource_type: "book+video", resource_id: "os_process" },
+            { day: "周六", start_time: "09:00", duration_minutes: 180, skill_name: "Redis综合实战", task_description: "完成本周Redis学习总结，动手实现：缓存穿透布隆过滤器方案、缓存击穿互斥锁方案、缓存雪崩随机过期方案", resource_type: "project", resource_id: "redis_project_1" },
+            { day: "周日", start_time: "14:00", duration_minutes: 120, skill_name: "周复习", task_description: "艾宾浩斯复习：回顾Redis五种数据结构命令、分布式锁实现、持久化配置。做LeetCode SQL 5题", resource_type: "practice", resource_id: "review_w1" },
+          ],
+          total_minutes: 750, milestone_this_week: "Redis五种数据结构全部动手实现Demo，分布式锁库存扣减Demo完成"
+        },
+        {
+          week_number: 2, theme: "Redis进阶场景 + 操作系统内存管理",
+          slots: [
+            { day: "周一", start_time: "19:00", duration_minutes: 90, skill_name: "Redis BitMap/HyperLogLog", task_description: "学习BitMap签到统计、HyperLogLog UV统计、GEO附近的人，每个场景写一个Demo", resource_type: "video", resource_id: "redis_adv_1" },
+            { day: "周二", start_time: "14:00", duration_minutes: 120, skill_name: "Redis Stream/消息队列", task_description: "学习Redis Stream消息队列，对比Kafka/RocketMQ，实现一个简单的异步任务处理系统", resource_type: "project", resource_id: "redis_stream" },
+            { day: "周三", start_time: "19:00", duration_minutes: 90, skill_name: "操作系统内存管理", task_description: "学习虚拟内存、页表、TLB、缺页中断、LRU页面置换算法。读《CSAPP》第9章", resource_type: "book", resource_id: "os_memory" },
+            { day: "周四", start_time: "19:00", duration_minutes: 60, skill_name: "MySQL 索引优化", task_description: "学习B+树索引原理、聚簇索引vs非聚簇索引、覆盖索引、最左前缀原则，Explain分析实战5个SQL", resource_type: "video", resource_id: "mysql_index" },
+            { day: "周五", start_time: "19:00", duration_minutes: 90, skill_name: "操作系统进程调度", task_description: "学习CFS完全公平调度、O(1)调度、实时调度。对比Linux与Windows。做5道LeetCode", resource_type: "book+practice", resource_id: "os_schedule" },
+            { day: "周六", start_time: "09:00", duration_minutes: 240, skill_name: "Redis综合项目", task_description: "整合本周知识，实现一个基于Redis的点赞系统（Set）、排行榜（ZSet）、签到（BitMap）的综合Demo", resource_type: "project", resource_id: "redis_project_2" },
+            { day: "周日", start_time: "14:00", duration_minutes: 120, skill_name: "周复习+算法", task_description: "回顾Redis进阶场景、操作系统内存/调度。刷LeetCode Hot 100 10题，SQL 5题", resource_type: "practice", resource_id: "review_w2" },
+          ],
+          total_minutes: 810, milestone_this_week: "Redis进阶场景全部实现Demo，操作系统内存管理章节掌握，LeetCode累计20题"
+        },
+        {
+          week_number: 3, theme: "操作系统收尾 + Spring Boot进阶 + 微服务入门",
+          slots: [
+            { day: "周一", start_time: "19:00", duration_minutes: 90, skill_name: "操作系统文件系统", task_description: "学习inode、硬链接vs软链接、ext4文件系统结构、VFS虚拟文件系统", resource_type: "book+video", resource_id: "os_fs" },
+            { day: "周二", start_time: "19:00", duration_minutes: 90, skill_name: "操作系统IO模型", task_description: "学习同步/异步/阻塞/非阻塞IO、epoll原理、零拷贝sendfile。做5道LeetCode", resource_type: "video+practice", resource_id: "os_io" },
+            { day: "周三", start_time: "14:00", duration_minutes: 150, skill_name: "Spring Security", task_description: "学习认证（JWT/OAuth2）与授权（RBAC）原理，实现一个带登录鉴权的Spring Boot项目", resource_type: "project", resource_id: "spring_security" },
+            { day: "周四", start_time: "19:00", duration_minutes: 90, skill_name: "Spring AOP", task_description: "学习AOP原理（JDK动态代理/CGLIB），实现自定义日志注解、接口耗时统计、全局异常处理", resource_type: "video+project", resource_id: "spring_aop" },
+            { day: "周五", start_time: "19:00", duration_minutes: 90, skill_name: "微服务概念", task_description: "学习微服务架构概述：服务注册/发现、配置中心、API网关、负载均衡。对比Dubbo vs Spring Cloud", resource_type: "video", resource_id: "microservice_intro" },
+            { day: "周六", start_time: "09:00", duration_minutes: 240, skill_name: "Spring Boot综合实战", task_description: "搭建一个整合Security + AOP + MyBatis + Redis的完整Spring Boot项目骨架，作为后续微服务项目的基础", resource_type: "project", resource_id: "spring_project" },
+            { day: "周日", start_time: "14:00", duration_minutes: 120, skill_name: "周复习", task_description: "回顾操作系统IO模型和文件系统、Spring Security/AOP。刷LeetCode 8题（重点DP入门5题）", resource_type: "practice", resource_id: "review_w3" },
+          ],
+          total_minutes: 870, milestone_this_week: "Spring Boot项目骨架搭建完成（整合Security+AOP+Redis），LeetCode累计28题"
+        },
+        {
+          week_number: 4, theme: "操作系统收尾 + MySQL优化 + 阶段总结",
+          slots: [
+            { day: "周一", start_time: "19:00", duration_minutes: 90, skill_name: "操作系统期末考试式复习", task_description: "用思维导图梳理操作系统全部章节：进程/内存/文件/IO/调度。刷题巩固10道经典面试题", resource_type: "practice", resource_id: "os_review" },
+            { day: "周二", start_time: "19:00", duration_minutes: 90, skill_name: "MySQL MVCC与事务", task_description: "学习MVCC实现原理（undo log + ReadView）、四种隔离级别的实现差异、幻读解决", resource_type: "video+article", resource_id: "mysql_mvcc" },
+            { day: "周三", start_time: "14:00", duration_minutes: 120, skill_name: "MySQL 分库分表", task_description: "学习水平分库分表策略（range/hash/mod）、ShardingSphere实战、分布式ID生成（雪花算法）", resource_type: "project", resource_id: "mysql_shard" },
+            { day: "周四", start_time: "19:00", duration_minutes: 60, skill_name: "MySQL 慢查询优化", task_description: "使用慢查询日志+Explain+Tracing分析5条实际慢SQL，写出优化方案并验证", resource_type: "practice", resource_id: "mysql_slow" },
+            { day: "周五", start_time: "19:00", duration_minutes: 90, skill_name: "Phase 1 阶段总结", task_description: "用思维导图总结前4周所有学习内容：Redis全部/操作系统核心/MySQL优化/Spring Boot进阶。标记薄弱环节", resource_type: "practice", resource_id: "phase1_review" },
+            { day: "周六", start_time: "09:00", duration_minutes: 180, skill_name: "Phase 1 收尾项目", task_description: "用Spring Boot + Redis + MySQL完成一个「用户积分系统」：签到送积分(BitMap)、积分排行榜(ZSet)、积分明细持久化、接口鉴权", resource_type: "project", resource_id: "phase1_project" },
+            { day: "周日", start_time: "14:00", duration_minutes: 120, skill_name: "总复习", task_description: "系统回顾Phase 1全部内容。刷LeetCode 10题（重点栈/队列/哈希）。为Phase 2做准备", resource_type: "practice", resource_id: "review_w4" },
+          ],
+          total_minutes: 750, milestone_this_week: "Phase 1全面完成：Redis从25%→65%，操作系统从45%→65%，MySQL从60%→72%，LeetCode累计38题，Spring Boot综合项目骨架完成"
+        },
+      ],
+      target_match_improvement: { from: 38, to: 80 }
     }
   }
+};
+
+// Resource library with real links
+const RESOURCE_LIBRARY = {
+  redis_basic_1: { name: "Redis入门教程（黑马程序员）", url: "https://www.bilibili.com/video/BV1Rv41177Af", platform: "B站", type: "video" },
+  redis_basic_2: { name: "Redis核心数据结构详解", url: "https://www.bilibili.com/video/BV1CJ411m7Gc", platform: "B站", type: "video" },
+  redis_lock: { name: "Redisson分布式锁实战", url: "https://github.com/redisson/redisson", platform: "GitHub", type: "project" },
+  redis_persist: { name: "Redis持久化机制详解（小林coding）", url: "https://xiaolincoding.com/redis/storage/rdb.html", platform: "小林coding", type: "article" },
+  redis_adv_1: { name: "Redis高级数据类型实战", url: "https://www.bilibili.com/video/BV1S54y1R7SB", platform: "B站", type: "video" },
+  redis_stream: { name: "Redis Stream消息队列", url: "https://redis.io/docs/latest/develop/data-types/streams/", platform: "官网", type: "article" },
+  redis_project_1: { name: "Redis缓存实战项目", url: "https://github.com/dunwu/db-tutorial", platform: "GitHub", type: "project" },
+  redis_project_2: { name: "Redis社交功能Demo", url: "https://github.com/coding-huang/redis-demo", platform: "GitHub", type: "project" },
+  os_process: { name: "操作系统进程管理（王道考研）", url: "https://www.bilibili.com/video/BV1YE411D7nH", platform: "B站", type: "video" },
+  os_memory: { name: "《深入理解计算机系统》CSAPP", url: "https://github.com/huangrt01/CSAPP", platform: "GitHub", type: "book" },
+  os_schedule: { name: "Linux CFS调度器源码分析", url: "https://github.com/torvalds/linux/tree/master/kernel/sched", platform: "GitHub", type: "code" },
+  os_fs: { name: "文件系统inode详解", url: "https://www.bilibili.com/video/BV1Ch4y1f7F3", platform: "B站", type: "video" },
+  os_io: { name: "Linux IO模型与epoll", url: "https://xiaolincoding.com/os/8_network_system/selete_poll_epoll.html", platform: "小林coding", type: "article" },
+  os_review: { name: "操作系统面试突击", url: "https://github.com/CyC2018/CS-Notes", platform: "GitHub", type: "book" },
+  mysql_index: { name: "MySQL索引优化实战（尚硅谷）", url: "https://www.bilibili.com/video/BV1Kr4y1i7ru", platform: "B站", type: "video" },
+  mysql_mvcc: { name: "MySQL MVCC原理深入", url: "https://xiaolincoding.com/mysql/transaction/mvcc.html", platform: "小林coding", type: "article" },
+  mysql_shard: { name: "ShardingSphere分库分表实战", url: "https://shardingsphere.apache.org/", platform: "官网", type: "project" },
+  mysql_slow: { name: "MySQL慢查询优化指南", url: "https://github.com/datacharmer/test_db", platform: "GitHub", type: "practice" },
+  spring_security: { name: "Spring Security + JWT实战", url: "https://www.bilibili.com/video/BV1mm4y1X7Hc", platform: "B站", type: "video" },
+  spring_aop: { name: "Spring AOP原理与实战", url: "https://www.bilibili.com/video/BV1pJ411S7WH", platform: "B站", type: "video" },
+  spring_project: { name: "Spring Boot企业级项目骨架", url: "https://github.com/zhoutaoo/SpringCloud", platform: "GitHub", type: "project" },
+  microservice_intro: { name: "Spring Cloud微服务入门（尚硅谷）", url: "https://www.bilibili.com/video/BV1LQ4y127n4", platform: "B站", type: "video" },
+  phase1_review: { name: "Java后端学习路线思维导图", url: "https://github.com/xingshaocheng/architect-awesome", platform: "GitHub", type: "article" },
+  phase1_project: { name: "用户积分系统项目模板", url: "https://github.com/macrozheng/mall", platform: "GitHub", type: "project" },
+  review_w1: { name: "LeetCode SQL题库", url: "https://leetcode.cn/problemset/database/", platform: "LeetCode", type: "practice" },
+  review_w2: { name: "LeetCode Hot 100", url: "https://leetcode.cn/problem-list/2cktkvj/", platform: "LeetCode", type: "practice" },
+  review_w3: { name: "LeetCode动态规划入门", url: "https://leetcode.cn/problem-list/50v4n7dd/", platform: "LeetCode", type: "practice" },
+  review_w4: { name: "LeetCode栈和队列", url: "https://leetcode.cn/problem-list/2cktkvj/", platform: "LeetCode", type: "practice" },
 };
