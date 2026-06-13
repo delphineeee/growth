@@ -1,4 +1,4 @@
-// Growth AI Studio — Client App v1.2
+// Growth AI Studio — Client App v1.3
 const LS = {
   get(k) { try { return JSON.parse(localStorage.getItem('growth_' + k)); } catch { return null; } },
   set(k, v) { localStorage.setItem('growth_' + k, JSON.stringify(v)); },
@@ -67,13 +67,15 @@ async function handleFileUpload() {
 
   try {
     let text = '';
-    if (file.name.endsWith('.txt')) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext === 'txt' || ext === 'csv') {
       text = await file.text();
-    } else if (file.name.endsWith('.pdf') || file.name.endsWith('.docx')) {
-      // Client-side: use FileReader, server will parse on submit
+    } else if (ext === 'xlsx' || ext === 'xls') {
+      text = parseExcel(await file.arrayBuffer());
+    } else if (ext === 'pdf' || ext === 'docx') {
       const buf = await file.arrayBuffer();
       text = new TextDecoder().decode(buf.slice(0, 5000)).replace(/[^\x20-\x7E一-鿿　-〿＀-￯\n]/g, ' ');
-    } else if (file.name.match(/\.(png|jpg|jpeg)$/i)) {
+    } else if (['png','jpg','jpeg'].includes(ext)) {
       text = '[图片已上传，服务器将使用 OCR 识别]';
     }
     const clean = text.slice(0, 3000);
@@ -82,6 +84,43 @@ async function handleFileUpload() {
   } catch (e) {
     preview.innerHTML = '<span style="color:var(--warm);">解析失败，请直接将内容粘贴到下方文本框</span>';
   }
+}
+
+async function handleScheduleUpload() {
+  const file = document.getElementById('scheduleFile').files[0];
+  if (!file) return;
+  const preview = document.getElementById('schedulePreview');
+  preview.style.display = '';
+  preview.innerHTML = '<div class="spinner"></div> 正在解析课表...';
+
+  try {
+    let text = '';
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext === 'xlsx' || ext === 'xls') {
+      text = parseExcel(await file.arrayBuffer());
+    } else if (ext === 'csv' || ext === 'txt') {
+      text = await file.text();
+    } else if (['png','jpg','jpeg'].includes(ext)) {
+      text = '[课表截图已上传，服务器将使用 OCR 识别]';
+    }
+    const clean = text.slice(0, 2000);
+    document.getElementById('scheduleInput').value = clean;
+    preview.innerHTML = '<span style="color:var(--accent);">课表解析完成</span>（已自动填入，可手动修改）';
+  } catch (e) {
+    preview.innerHTML = '<span style="color:var(--warm);">解析失败，请直接输入课程表内容</span>';
+  }
+}
+
+function parseExcel(buffer) {
+  if (typeof XLSX === 'undefined') return '[Excel 解析库未加载，请直接粘贴内容]';
+  const wb = XLSX.read(buffer, { type: 'array' });
+  const texts = [];
+  wb.SheetNames.forEach(name => {
+    const sheet = wb.Sheets[name];
+    texts.push('【' + name + '】');
+    texts.push(XLSX.utils.sheet_to_csv(sheet));
+  });
+  return texts.join('\n');
 }
 
 // ── Auto-login ─────────────────────────────────────────
@@ -174,13 +213,27 @@ function showApp() {
   if (S.plan) renderPathResult();
 }
 
+// ── About Modal ────────────────────────────────────────
+function toggleAbout() {
+  const m = document.getElementById('aboutModal');
+  m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
+}
+
 // ── Navigation ──────────────────────────────────────────
 document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
   btn.addEventListener('click', () => {
+    // If clicking resources, redirect to path (merged)
+    const target = btn.dataset.page === 'resources' ? 'path' : btn.dataset.page;
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    // Highlight the correct button
+    if (btn.dataset.page === 'resources') {
+      document.querySelector('.nav-btn[data-page="path"]').classList.add('active');
+    } else {
+      btn.classList.add('active');
+    }
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.getElementById('page-' + btn.dataset.page).classList.add('active');
+    const pageEl = document.getElementById('page-' + target);
+    if (pageEl) pageEl.classList.add('active');
   });
 });
 
@@ -349,24 +402,70 @@ function renderPathResult() {
       el.innerHTML += '<div style="padding:6px 0;border-bottom:1px solid var(--line);">Week ' + m.week + '：' + m.title + '</div>';
     });
   }
+
+  // Inline resources
+  if (S.gapReport && S.gapReport.length) {
+    renderResourcesInline(el, S.gapReport.map(g => g.skill_name));
+  }
 }
 
-// ═══ Page 4: Resources ════════════════════════════════
+// ═══ Page 4: Resources (integrated into Path) ═════════
 async function getResources() {
-  const el = document.getElementById('resourcesResult');
-  if (!S.gapReport || !S.gapReport.length) { el.innerHTML = '<p style="color:var(--muted);">请先完成前序步骤。</p>'; return; }
-  el.innerHTML = '<div class="spinner"></div> AI 正在搜索全网学习资源...';
-  try {
-    const r = await api('/chat', {
-      message: '请以纯文本格式（不要使用markdown符号如**或*或#），推荐以下技能差距对应的B站、GitHub、MOOC学习资源，每条资源一行，格式为「平台 - 资源名称 - 链接关键词」：' + JSON.stringify(S.gapReport.slice(0, 5).map(g => g.skill_name)),
-      profile: S.profile, gap_report: S.gapReport,
-    });
-    el.innerHTML = '<p style="font-weight:700;color:var(--accent-strong);">AI 资源推荐</p>';
-    el.innerHTML += '<div style="white-space:pre-wrap;line-height:2;padding:12px;background:rgba(255,255,255,0.5);border-radius:12px;">' + stripMD(r.reply || '') + '</div>';
-  } catch (e) {
-    if (e.message === 'SERVER_COLD') el.innerHTML = '<p style="color:var(--warm);">服务器冷启动中，请稍后重试。</p>';
-    else el.innerHTML = '<p style="color:var(--danger);">连接失败：' + e.message + '</p>';
+  // Redirect to path page - resources are now integrated
+  document.querySelector('.nav-btn[data-page="path"]').click();
+  if (!S.plan) {
+    alert('请先生成学习路径（Step 3），资源推荐已整合到学习路径中。');
   }
+}
+
+function renderResourcesInline(container, skillNames) {
+  // Generate resource links inline - displayed within the learning path
+  const resourceMap = {
+    'Java': [
+      { name: '黑马程序员 Java 入门教程', url: 'https://www.bilibili.com/video/BV1Cv411372m', platform: 'B站' },
+      { name: 'JavaGuide 面试指南', url: 'https://github.com/Snailclimb/JavaGuide', platform: 'GitHub' },
+    ],
+    'Spring Boot': [
+      { name: 'SpringBoot 最新教程（尚硅谷）', url: 'https://www.bilibili.com/video/BV19K4y1L7MT', platform: 'B站' },
+      { name: 'Spring Boot 官方文档', url: 'https://spring.io/projects/spring-boot', platform: '官网' },
+    ],
+    'Redis': [
+      { name: 'Redis 入门到精通（编程不良人）', url: 'https://www.bilibili.com/video/BV1Rv41177Af', platform: 'B站' },
+    ],
+    'MySQL': [
+      { name: 'MySQL 实战45讲', url: 'https://time.geekbang.org/column/intro/100020801', platform: '极客时间' },
+      { name: 'LeetCode SQL 题库', url: 'https://leetcode.cn/problemset/database/', platform: 'LeetCode' },
+    ],
+    'Python': [
+      { name: 'Python 数据分析（黑马程序员）', url: 'https://www.bilibili.com/video/BV1qJ411W7Qs', platform: 'B站' },
+    ],
+    '数据结构': [
+      { name: 'LeetCode 热题100', url: 'https://leetcode.cn/problem-list/2cktkvj/', platform: 'LeetCode' },
+      { name: 'hello-algo 图解数据结构', url: 'https://github.com/krahets/hello-algo', platform: 'GitHub' },
+    ],
+    '算法': [
+      { name: 'LeetCode 热题100', url: 'https://leetcode.cn/problem-list/2cktkvj/', platform: 'LeetCode' },
+      { name: '代码随想录', url: 'https://github.com/youngyangyang04/leetcode-master', platform: 'GitHub' },
+    ],
+  };
+
+  let html = '<p style="font-weight:700;color:var(--accent-strong);margin-top:16px;">推荐学习资源</p>';
+  let found = false;
+  skillNames.forEach(name => {
+    const resources = resourceMap[name] || [];
+    if (resources.length) {
+      found = true;
+      html += '<p style="margin:8px 0 4px 0;font-weight:600;">' + name + '：</p>';
+      resources.forEach(r => {
+        html += '<div style="margin:4px 0;padding:8px 12px;background:rgba(255,255,255,0.5);border-radius:8px;font-size:0.85rem;">'
+          + '<span style="color:var(--muted);">[' + r.platform + ']</span> '
+          + '<a href="' + r.url + '" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;font-weight:600;">'
+          + r.name + ' →</a></div>';
+      });
+    }
+  });
+  if (!found) html += '<p style="color:var(--muted);">AI 将根据你的技能差距生成个性化资源推荐（需要先分析目标岗位）。</p>';
+  container.innerHTML += html;
 }
 
 // ═══ Page 5: Check-in ══════════════════════════════════
