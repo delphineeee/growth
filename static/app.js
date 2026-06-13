@@ -236,6 +236,7 @@ async function demoLogin() {
   renderProfileResult();
   renderTargetResult();
   renderPathResult();
+  setTimeout(() => renderCheckinHistory(), 300);
   // Switch to profile page to show results
   document.querySelectorAll('.nav-btn[data-page="profile"]')[0].click();
 }
@@ -563,6 +564,57 @@ async function doCheckin() {
     showError(el, e.message, doCheckin);
   }
 }
+
+function renderCheckinHistory() {
+  const data = S._checkinHistory || DEMO_CHECKIN;
+  if (!data || !data.length) return;
+  const el = document.getElementById('checkinTimeline');
+  const container = document.getElementById('checkinHistory');
+  if (!el || !container) return;
+  container.style.display = '';
+  document.getElementById('checkinStatus').textContent = '已回访 ' + data.length + ' 次';
+  document.getElementById('checkinStatus').className = 'badge badge-ok';
+
+  el.innerHTML = data.map((entry, i) => `
+    <div style="margin:16px 0;padding:16px;background:rgba(255,255,255,0.6);border-radius:14px;border:1px solid var(--line);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-weight:700;color:var(--accent-strong);">第 ${entry.week} 周回访（${entry.date}）</span>
+        <span class="badge ${entry.onTrack ? 'badge-ok' : 'badge-warn'}">${entry.onTrack ? '按计划进行' : '需要调整'}</span>
+      </div>
+      <div style="background:rgba(15,133,118,0.03);padding:10px 14px;border-radius:10px;margin:8px 0;">
+        <span style="font-size:0.8rem;color:var(--muted);">李明：</span>
+        <span style="font-size:0.88rem;">${entry.student}</span>
+      </div>
+      <div style="background:rgba(215,110,77,0.03);padding:10px 14px;border-radius:10px;margin:8px 0;">
+        <span style="font-size:0.8rem;color:var(--warm);">Growth AI：</span>
+        <span style="font-size:0.88rem;">${entry.coach}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+const DEMO_CHECKIN = [
+  {
+    week: 1, date: "10月13日（周日）", onTrack: true,
+    student: "这周Redis入门进度不错！五种数据结构（String/Hash/List/Set/ZSet）的基本操作都掌握了，分布式锁也动手实现了库存扣减Demo。操作系统的进程管理章节看完了。但是Redis的Stream消息队列那块还没看，明天补上。总体感觉Redis挺有意思的，比MySQL好玩。",
+    coach: "进度非常好！第一周完成率约85%，超出了预期。Redis的动手能力明显提升。Stream消息队列不用急，属于进阶内容，可以在下周碎片时间补。这周的亮点是分布式锁Demo——这个在面试里是高频考点，建议把实现思路整理成笔记。下周重点：Redis进阶场景（BitMap/HyperLogLog/GEO）+ 操作系统内存管理。保持节奏！"
+  },
+  {
+    week: 2, date: "10月20日（周日）", onTrack: true,
+    student: "第二周完成了Redis的BitMap签到统计、HyperLogLog UV统计和GEO附近的人，这三个功能都写了Demo。操作系统的内存管理（虚拟内存/页表/TLB）看完了CSAPP第9章。但是文件系统那块有点难，inode和硬链接软链接的关系绕来绕去。MySQL的索引优化还在看B+树的部分。LeetCode刷了8题。",
+    coach: "连续两周按计划推进，非常棒！操作系统文件系统确实是难点——建议换个学习方式：不要死磕理论，去GitHub找一个ext4文件系统的源码分析笔记，对照着inode结构体看会更直观。MySQL索引可以加快节奏，重点放在Explain执行计划分析上，这个面试必考。Redis的三个进阶场景Demo做得很好，建议截图放在简历里作为技能证明。"
+  },
+  {
+    week: 3, date: "10月27日（周日）", onTrack: false,
+    student: "这周遇到了瓶颈。Spring Security和AOP比我想象的复杂——JDK动态代理和CGLIB的区别搞了半天，自定义注解也卡住了。微服务概念那一节看完视频感觉云里雾里的，Nacos和Gateway到底怎么配合还是没搞明白。唯一的好消息是操作系统IO模型（epoll/select）看懂了，小林coding的文章讲得很清楚。LeetCode刷了6题，DP还是不会。",
+    coach: "第三周出现瓶颈很正常，别着急。Spring Security和AOP是Spring生态里最难啃的两块骨头——建议暂停微服务章节，先把Security+JWT的认证流程彻底搞懂（看视频+跟着敲代码）。微服务下周我会重新安排节奏，先从Nacos单机部署开始，再逐步引入Gateway。DP是算法的分水岭，建议先背5道经典DP题的模板（爬楼梯、背包、最长子序列），不求多求理解。本周完成度约65%，我把下周计划做了微调：减少2小时微服务理论，增加3小时Security实操。"
+  },
+  {
+    week: 4, date: "11月3日（周日）", onTrack: true,
+    student: "调整后的计划执行得很好！Spring Security的JWT认证流程搞懂了，搭了一个带登录鉴权的Spring Boot项目。AOP的自定义日志注解也做出来了——拦截Controller请求自动打印入参出参，感觉很有成就感。操作系统期末考试式复习用思维导图梳理完了，做了10道经典面试题。MySQL的MVCC原理（undo log + ReadView）也理解了。Phase 1的积分系统综合项目周六一口气写了5个小时，Redis BitMap签到 + ZSet排行榜 + MySQL明细持久化全通了！",
+    coach: "Phase 1收尾非常漂亮！四周从Redis零基础到能独立写出积分系统，从操作系统45%提升到接近70%——这个进步速度如果保持下去，春招大有希望。综合项目建议：把积分系统部署到云服务器，写一篇技术博客（知乎/掘金），这比简历上写「熟悉Redis」有说服力100倍。下周进入Phase 2：Spring Cloud微服务 + 分布式理论 + 算法加速刷题。我会把算法任务量稍微降低（每天1题而非2题），把更多精力留给微服务项目搭建——项目才是面试的硬通货。"
+  }
+];
 
 // ═══ Demo pre-loaded data ═════════════════════════════
 const DEMO_DATA = {

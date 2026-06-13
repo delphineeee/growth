@@ -155,6 +155,10 @@
       <p class="eyebrow">Step 5</p>
       <h2>定时回访</h2>
       <p style="color:var(--muted);margin-bottom:16px;">AI 每周回访检查学习进度，动态调整后续计划。</p>
+      <div class="glass-card" id="checkinHistory" style="margin-bottom:20px;display:none;">
+        <p class="eyebrow">回访记录</p>
+        <div id="checkinTimeline"></div>
+      </div>
       <div class="glass-card">
         <p>当前状态：<span class="badge badge-warn" id="checkinStatus">等待首次回访</span></p>
         <div class="field" style="margin-top:12px;"><span>这周的学习进展如何？</span><textarea id="checkinInput" rows="3" placeholder="告诉 AI 你这周完成了什么、遇到了什么困难..."></textarea></div>
