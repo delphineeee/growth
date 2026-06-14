@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Growth 管理面板 · 用户反馈</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body { background: var(--bg); font-family: var(--font); padding: 40px; max-width: 900px; margin: 0 auto; }
+    h1 { font-family: Georgia, serif; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: var(--panel); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); }
+    th, td { padding: 14px 16px; text-align: left; border-bottom: 1px solid var(--line); font-size: 0.9rem; }
+    th { background: rgba(15,133,118,0.08); font-weight: 700; color: var(--accent-strong); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    tr:hover { background: rgba(15,133,118,0.03); }
+    .empty { text-align: center; padding: 60px; color: var(--muted); }
+    .actions { margin-top: 16px; display: flex; gap: 8px; }
+    .btn { padding: 10px 20px; border-radius: 999px; border: none; font: inherit; font-weight: 600; cursor: pointer; transition: all 180ms ease; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-danger { background: var(--warm); color: white; }
+    .btn:hover { transform: translateY(-1px); }
+    .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; background: var(--accent-soft); color: var(--accent-strong); }
+    .stats { display: flex; gap: 16px; margin: 16px 0; }
+    .stat { padding: 16px 24px; background: var(--panel); border-radius: var(--radius-md); border: 1px solid var(--line); text-align: center; }
+    .stat .num { font-size: 2rem; font-weight: 700; color: var(--ink); }
+    .stat .label { font-size: 0.78rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+<h1>Growth AI Studio · 管理面板</h1>
+<p style="color:var(--muted);">用户反馈汇总 · <span id="version"></span> · <a href="/" style="color:var(--accent);">返回产品</a></p>
+
+<div class="stats">
+  <div class="stat"><div class="num" id="totalCount">—</div><div class="label">总反馈数</div></div>
+  <div class="stat"><div class="num" id="todayCount">—</div><div class="label">今日新增</div></div>
+</div>
+
+<div class="actions">
+  <button class="btn btn-primary" onclick="loadFeedbacks()">刷新</button>
+  <button class="btn" onclick="sendEmail()" style="background:var(--accent-strong);color:white;">发送反馈到邮箱</button>
+  <button class="btn btn-danger" onclick="clearAll()">清空全部</button>
+</div>
+<div id="emailMsg" style="margin-top:8px;font-size:0.85rem;display:none;"></div>
+
+<table>
+  <thead><tr><th>时间</th><th>用户</th><th>反馈内容</th></tr></thead>
+  <tbody id="feedbackTable"><tr><td class="empty" colspan="3">加载中...</td></tr></tbody>
+</table>
+
+<script>
+async function loadFeedbacks() {
+  try {
+    const r = await fetch('/api/feedbacks');
+    const data = await r.json();
+    document.getElementById('totalCount').textContent = data.count || 0;
+
+    const today = new Date().toISOString().slice(0, 10);
+    const todayCount = (data.feedbacks || []).filter(f => (f.time || '').startsWith(today)).length;
+    document.getElementById('todayCount').textContent = todayCount;
+
+    const tbody = document.getElementById('feedbackTable');
+    if (!data.feedbacks || data.feedbacks.length === 0) {
+      tbody.innerHTML = '<tr><td class="empty" colspan="3">暂无反馈</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.feedbacks.map(f =>
+      '<tr><td>' + (f.time || '') + '</td><td><span class="badge">' + (f.user || '匿名') + '</span></td><td>' + (f.text || '') + '</td></tr>'
+    ).join('');
+  } catch (e) {
+    document.getElementById('feedbackTable').innerHTML = '<tr><td class="empty" colspan="3">加载失败：' + e.message + '</td></tr>';
+  }
+}
+
+async function sendEmail() {
+  const el = document.getElementById('emailMsg');
+  el.style.display = ''; el.textContent = '发送中...';
+  try {
+    const r = await fetch('/api/admin/email-summary', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' });
+    const d = await r.json();
+    el.textContent = d.ok ? d.msg : ('发送失败: ' + d.error);
+    el.style.color = d.ok ? 'var(--accent)' : 'var(--warm)';
+  } catch(e) {
+    el.textContent = '请求失败: ' + e.message;
+    el.style.color = 'var(--warm)';
+  }
+}
+
+async function clearAll() {
+  if (!confirm('确定要清空所有反馈吗？此操作不可恢复。')) return;
+  await fetch('/api/feedbacks', { method: 'DELETE' });
+  loadFeedbacks();
+}
+
+// Check health for version
+fetch('/api/health').then(r => r.json()).then(d => {
+  document.getElementById('version').textContent = 'v' + (d.version || '?');
+}).catch(() => {});
+
+loadFeedbacks();
+// Auto-refresh every 60s
+setInterval(loadFeedbacks, 60000);
+</script>
+</body>
+</html>

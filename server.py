@@ -68,17 +68,99 @@ async def save_feedback(data: dict):
     """保存用户反馈"""
     try:
         from pathlib import Path
+        from datetime import datetime
         fb_file = PROJECT_ROOT / "data" / "feedbacks.jsonl"
         fb_file.parent.mkdir(parents=True, exist_ok=True)
         import json as _json
         entry = {
             "text": data.get("text", ""),
             "user": data.get("user", "匿名"),
-            "time": data.get("time", ""),
+            "time": datetime.now().strftime("%Y-%m-%d %H:%M"),
         }
         with open(fb_file, "a", encoding="utf-8") as f:
             f.write(_json.dumps(entry, ensure_ascii=False) + "\n")
         return {"ok": True}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+@app.get("/api/feedbacks")
+async def list_feedbacks():
+    """列出所有反馈"""
+    try:
+        fb_file = PROJECT_ROOT / "data" / "feedbacks.jsonl"
+        if not fb_file.exists():
+            return {"feedbacks": [], "count": 0}
+        import json as _json
+        feedbacks = []
+        with open(fb_file, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    feedbacks.append(_json.loads(line))
+        feedbacks.reverse()
+        return {"feedbacks": feedbacks, "count": len(feedbacks)}
+    except Exception as e:
+        return {"feedbacks": [], "count": 0, "error": str(e)}
+
+@app.delete("/api/feedbacks")
+async def clear_feedbacks():
+    """清空反馈"""
+    fb_file = PROJECT_ROOT / "data" / "feedbacks.jsonl"
+    if fb_file.exists():
+        fb_file.unlink()
+    return {"ok": True}
+
+@app.get("/admin")
+async def admin_page():
+    """管理页面"""
+    from fastapi.responses import FileResponse
+    admin_file = PROJECT_ROOT / "static" / "admin.html"
+    if admin_file.exists():
+        return FileResponse(admin_file)
+    return {"error": "admin.html not found"}
+
+@app.post("/api/admin/email-summary")
+async def email_summary(data: dict):
+    """发送反馈摘要到指定邮箱（QQ SMTP）"""
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+
+        to_email = data.get("email", "1729126784@qq.com")
+        smtp_user = os.environ.get("SMTP_USER", "1729126784@qq.com")
+        smtp_pass = os.environ.get("SMTP_PASS", "")
+
+        if not smtp_pass:
+            return {"ok": False, "error": "未配置 SMTP_PASS 环境变量。请在 QQ邮箱设置中生成授权码，添加到 Railway Variables"}
+
+        # Gather feedbacks
+        fb_file = PROJECT_ROOT / "data" / "feedbacks.jsonl"
+        import json as _json
+        feedbacks = []
+        if fb_file.exists():
+            with open(fb_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        feedbacks.append(_json.loads(line.strip()))
+        feedbacks.reverse()
+
+        # Build email body
+        body = f"Growth AI Studio 反馈摘要\n{'='*40}\n总计 {len(feedbacks)} 条反馈\n\n"
+        for fb in feedbacks[-20:]:  # Latest 20
+            body += f"[{fb.get('time','?')}] {fb.get('user','匿名')}:\n{fb.get('text','')}\n---\n"
+
+        msg = MIMEMultipart()
+        msg["From"] = smtp_user
+        msg["To"] = to_email
+        msg["Subject"] = f"[Growth] 用户反馈摘要 ({len(feedbacks)} 条)"
+        msg.attach(MIMEText(body, "plain", "utf-8"))
+
+        with smtplib.SMTP_SSL("smtp.qq.com", 465) as server:
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(smtp_user, to_email, msg.as_string())
+
+        return {"ok": True, "msg": f"已发送 {len(feedbacks)} 条反馈摘要到 {to_email}"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
