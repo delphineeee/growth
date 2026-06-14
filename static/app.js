@@ -252,11 +252,15 @@ function showApp() {
   document.getElementById('authGate').style.display = 'none';
   document.getElementById('appRoot').style.display = 'flex';
   document.getElementById('sidebarUser').textContent = (S.user || {}).username || '用户';
+  // Demo user: always restore data on login
+  if (S.user && S.user.username === '李明') {
+    restoreDemoData();
+    setTimeout(() => { renderProfileResult(); renderTargetResult(); renderPathResult(); renderCheckinHistory(); }, 300);
+    return;
+  }
   if (S.profile) renderProfileResult();
   if (S.gapReport) renderTargetResult();
   if (S.plan) renderPathResult();
-  // Pre-render check-in for demo users
-  if (S.user && S.user.username === '李明') setTimeout(() => renderCheckinHistory(), 600);
 }
 
 // ── About Modal ────────────────────────────────────────
@@ -286,6 +290,17 @@ document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
 
 // ═══ Page 1: Profile ═══════════════════════════════════
 async function buildProfile() {
+  // Demo account: just show pre-loaded data, don't call API
+  if (S.user && S.user.username === '李明') {
+    restoreDemoData();
+    renderProfileResult();
+    document.getElementById('profileChat').style.display = '';
+    document.getElementById('chatMessages').innerHTML = DEMO_DATA.profile.strength_tags.map(t =>
+      '<p style="background:rgba(15,133,118,0.06);padding:10px 14px;border-radius:12px;margin:6px 0;">AI：根据你的简历，我识别到以下优势：' + t + '</p>'
+    ).join('');
+    return;
+  }
+
   const resume = document.getElementById('resumeInput').value.trim();
   if (!resume) return alert('请先上传简历或输入简历内容');
 
@@ -345,6 +360,13 @@ async function sendAnswer() {
 
 // ═══ Page 2: Target ════════════════════════════════════
 async function analyzeTarget() {
+  // Demo account: just show pre-loaded data
+  if (S.user && S.user.username === '李明') {
+    restoreDemoData();
+    renderTargetResult();
+    document.getElementById('targetResult').innerHTML = '<p style="font-size:1.5rem;font-weight:700;color:var(--accent-strong);">匹配度：38%</p>' + document.getElementById('targetResult').innerHTML;
+    return;
+  }
   const pos = document.getElementById('targetPosition').value.trim();
   if (!pos) return alert('请输入目标岗位');
   if (!S.profile) return alert('请先在 Step 1 构建画像');
@@ -405,6 +427,12 @@ function updateGap(index, field, value) {
 
 // ═══ Page 3: Path ══════════════════════════════════════
 async function generatePath() {
+  // Demo account: just show pre-loaded data
+  if (S.user && S.user.username === '李明') {
+    restoreDemoData();
+    renderPathResult();
+    return;
+  }
   if (!S.profile) return alert('请先构建画像');
   if (!S.gapReport || !S.gapReport.length) return alert('请先分析目标岗位');
 
@@ -618,6 +646,19 @@ const DEMO_CHECKIN = [
     coach: "Phase 1收尾非常漂亮！四周从Redis零基础到能独立写出积分系统，从操作系统45%提升到接近70%——这个进步速度如果保持下去，春招大有希望。综合项目建议：把积分系统部署到云服务器，写一篇技术博客（知乎/掘金），这比简历上写「熟悉Redis」有说服力100倍。下周进入Phase 2：Spring Cloud微服务 + 分布式理论 + 算法加速刷题。我会把算法任务量稍微降低（每天1题而非2题），把更多精力留给微服务项目搭建——项目才是面试的硬通货。"
   }
 ];
+
+function restoreDemoData() {
+  S.profile = DEMO_DATA.profile;
+  S.gapReport = DEMO_DATA.gapReport;
+  S.plan = DEMO_DATA.plan;
+  LS.set('profile', S.profile); LS.set('gapReport', S.gapReport); LS.set('plan', S.plan);
+  // Re-fill input fields
+  const ri = document.getElementById('resumeInput'); if (ri && !ri.value) ri.value = DEMO_DATA.resumeText || '';
+  const ti = document.getElementById('targetPosition'); if (ti && !ti.value) ti.value = '字节跳动 后端开发工程师（校招）';
+  const td = document.getElementById('targetJD'); if (td && !td.value) td.value = DEMO_DATA.jdText || '';
+  const si = document.getElementById('scheduleInput'); if (si && !si.value) si.value = DEMO_DATA.scheduleText || '';
+  const td2 = document.getElementById('targetDate'); if (td2 && !td2.value) td2.value = '2026年春招';
+}
 
 // ═══ Demo pre-loaded data ═════════════════════════════
 const DEMO_DATA = {
