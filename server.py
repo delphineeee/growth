@@ -57,7 +57,30 @@ class ChatRequest(BaseModel):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "1.3.0"}
+    return {"status": "ok", "version": "1.4.2"}
+
+# ═══════════════════════════════════════════════════════
+# Feedback
+# ═══════════════════════════════════════════════════════
+
+@app.post("/api/feedback")
+async def save_feedback(data: dict):
+    """保存用户反馈"""
+    try:
+        from pathlib import Path
+        fb_file = PROJECT_ROOT / "data" / "feedbacks.jsonl"
+        fb_file.parent.mkdir(parents=True, exist_ok=True)
+        import json as _json
+        entry = {
+            "text": data.get("text", ""),
+            "user": data.get("user", "匿名"),
+            "time": data.get("time", ""),
+        }
+        with open(fb_file, "a", encoding="utf-8") as f:
+            f.write(_json.dumps(entry, ensure_ascii=False) + "\n")
+        return {"ok": True}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 # ═══════════════════════════════════════════════════════
 # Auth (simple — in-memory + SQLite)

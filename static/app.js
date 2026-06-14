@@ -16,7 +16,7 @@ const S = {
 };
 
 const API = '/api';
-const API_TIMEOUT = 120000; // 2 min timeout for AI calls
+const API_TIMEOUT = 180000; // 3 min timeout for AI calls (DeepSeek can be slow)
 
 // ── Error / Retry helper ──────────────────────────────
 function showError(el, msg, retryFn) {
@@ -263,6 +263,34 @@ function showApp() {
   if (S.plan) renderPathResult();
 }
 
+// ── Feedback ───────────────────────────────────────────
+function toggleFeedback() {
+  const m = document.getElementById('feedbackModal');
+  m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
+}
+
+async function submitFeedback() {
+  const text = document.getElementById('feedbackText').value.trim();
+  if (!text) return;
+  const msg = document.getElementById('feedbackMsg');
+  msg.style.display = '';
+  msg.textContent = '提交中...';
+
+  // Save locally
+  const feedbacks = LS.get('feedbacks') || [];
+  feedbacks.push({ text, user: (S.user || {}).username || '匿名', time: new Date().toISOString() });
+  LS.set('feedbacks', feedbacks);
+
+  // Try to send to server
+  try {
+    await api('/feedback', { text, user: (S.user || {}).username || '匿名' });
+  } catch (e) { /* server may be cold, saved locally anyway */ }
+
+  msg.textContent = '感谢反馈！我们会认真查看每条建议。';
+  document.getElementById('feedbackText').value = '';
+  setTimeout(() => { msg.style.display = 'none'; }, 3000);
+}
+
 // ── About Modal ────────────────────────────────────────
 function toggleAbout() {
   const m = document.getElementById('aboutModal');
@@ -277,8 +305,10 @@ function switchPage(targetPage) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   const pageEl = document.getElementById('page-' + targetPage);
   if (pageEl) pageEl.classList.add('active');
-  // Trigger check-in render when switching to checkin page
-  if (targetPage === 'checkin') setTimeout(() => renderCheckinHistory(), 100);
+  // Only render demo checkin for demo user
+  if (targetPage === 'checkin' && S.user && S.user.username === '李明') {
+    setTimeout(() => renderCheckinHistory(), 100);
+  }
 }
 
 document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
@@ -305,13 +335,20 @@ async function buildProfile() {
   if (!resume) return alert('请先上传简历或输入简历内容');
 
   const el = document.getElementById('profileResult');
-  el.innerHTML = '<div class="spinner"></div> AI 正在分析...';
+  const startTime = Date.now();
+  el.innerHTML = '<div class="spinner"></div> AI 正在分析你的简历...（预计 10-30 秒，请耐心等待）';
+  const timer = setInterval(() => {
+    const elapsed = Math.round((Date.now() - startTime) / 1000);
+    el.innerHTML = '<div class="spinner"></div> AI 正在分析...（已等待 ' + elapsed + ' 秒）';
+  }, 3000);
   try {
     const r = await api('/profile/build', {
+
       resume_text: resume,
       schedule_text: document.getElementById('scheduleInput').value.trim(),
       user_id: (S.user || {}).id || 'demo'
     });
+    clearInterval(timer);
     S.profile = r.profile; S.profileState = r; LS.set('profile', r.profile);
     renderProfileResult();
 
@@ -323,6 +360,7 @@ async function buildProfile() {
       ).join('');
     }
   } catch (e) {
+    clearInterval(timer);
     showError(el, e.message, buildProfile);
   }
 }
@@ -372,7 +410,15 @@ async function analyzeTarget() {
   if (!S.profile) return alert('请先在 Step 1 构建画像');
 
   const el = document.getElementById('targetResult');
-  el.innerHTML = '<div class="spinner"></div> AI 正在分析...';
+  // Warn if user has manually modified gaps
+  if (S.gapReport && S.gapReport.some(g => g._userModified)) {
+    if (!confirm('检测到你手动修改了技能差距数值。重新分析将覆盖这些修改。确定继续？')) return;
+  }
+  const startTime = Date.now();
+  el.innerHTML = '<div class="spinner"></div> AI 正在拆解岗位技能树...（预计 10-30 秒）';
+  const timer = setInterval(() => {
+    el.innerHTML = '<div class="spinner"></div> AI 正在分析...（已等待 ' + Math.round((Date.now() - startTime) / 1000) + ' 秒）';
+  }, 3000);
   try {
     const r = await api('/analyze', {
       profile: S.profile,
@@ -386,10 +432,12 @@ async function analyzeTarget() {
       importance: g.importance || 0.5,
       severity: g.severity || 'moderate',
     }));
+    clearInterval(timer);
     LS.set('gapReport', S.gapReport);
     el.innerHTML = '<p style="font-size:1.5rem;font-weight:700;color:var(--accent-strong);">匹配度：' + (r.overall_match || 0) + '%</p>';
     renderTargetResult();
   } catch (e) {
+    clearInterval(timer);
     showError(el, e.message, analyzeTarget);
   }
 }
@@ -421,6 +469,7 @@ function updateGap(index, field, value) {
   const gapScore = g.importance * Math.max((g.target_level - g.current_level) / 100, 0);
   S.gapReport[index].gap_score = gapScore;
   S.gapReport[index].severity = gapScore > 0.4 ? 'critical' : (gapScore > 0.15 ? 'moderate' : 'minor');
+  S.gapReport[index]._userModified = true;
   LS.set('gapReport', S.gapReport);
   renderTargetResult();
 }

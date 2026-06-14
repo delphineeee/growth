@@ -93,6 +93,7 @@
     <button class="nav-btn" data-page="path"><span>&#9654;</span> 生成学习路径</button>
     <button class="nav-btn" data-page="path"><span>&#9671;</span> 学习路径与资源</button>
     <button class="nav-btn" data-page="checkin"><span>&#9733;</span> 定时回访</button>
+    <button class="nav-btn" id="feedbackBtn" onclick="toggleFeedback()" style="font-size:0.85rem;"><span>&#9993;</span> 反馈建议</button>
     <button class="nav-btn" id="aboutBtn" onclick="toggleAbout()" style="font-size:0.85rem;"><span>&#167;</span> 关于 Growth</button>
     <div style="margin-top:auto;padding-top:16px;">
       <button class="nav-btn" onclick="logout()" style="font-size:0.82rem;color:var(--muted);">退出登录</button>
@@ -174,6 +175,21 @@
     </section>
 
   </main>
+</div>
+
+<!-- Feedback Modal -->
+<div id="feedbackModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.3);z-index:1001;align-items:center;justify-content:center;">
+<div style="background:var(--panel);border:1px solid rgba(255,255,255,0.68);border-radius:var(--radius-xl);padding:32px;max-width:480px;width:90%;box-shadow:var(--shadow);">
+<p class="eyebrow">Feedback</p>
+<h2>反馈建议</h2>
+<p style="color:var(--muted);font-size:0.88rem;">告诉我们你的使用体验、遇到的问题或功能建议。</p>
+<textarea id="feedbackText" rows="4" placeholder="请描述你的建议或遇到的问题..."></textarea>
+<div style="display:flex;gap:8px;margin-top:12px;">
+  <button class="primary-btn" onclick="submitFeedback()" style="margin:0;">提交反馈</button>
+  <button class="secondary-link" onclick="toggleFeedback()" style="margin:0;width:auto;padding:14px 20px;">取消</button>
+</div>
+<p id="feedbackMsg" style="margin-top:8px;font-size:0.82rem;color:var(--accent);display:none;"></p>
+</div>
 </div>
 
 <!-- About Modal -->
