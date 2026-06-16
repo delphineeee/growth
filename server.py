@@ -165,18 +165,19 @@ async def usage_stats(geo: bool = False):
             for ip in unique_ips[:20]:
                 # Skip local/private IPs
                 if any(ip.startswith(p) for p in LOCAL_PREFIXES):
-                    ip_geo[ip] = "局域网 / 内网地址"
+                    ip_geo[ip] = "内部网络"
                     continue
-                # CGNAT / Railway internal (RFC 6598: 100.64.0.0/10)
-                if ip.startswith("100.64.") or ip.startswith("100.65.") or ip.startswith("100.66.") or ip.startswith("100.67."):
-                    ip_geo[ip] = "Railway 内部容器 · CGNAT地址段"
-                    continue
-                if ip.startswith("100.") and ip.split(".")[1].isdigit() and 64 <= int(ip.split(".")[1]) <= 127:
-                    ip_geo[ip] = "Railway 内部容器 · CGNAT地址段"
-                    continue
-                # Skip Railway internal IPs
-                if ip.startswith("172.") or "internal" in ip:
-                    ip_geo[ip] = "Railway 内部网络"
+                # CGNAT / Railway internal (RFC 6598: 100.64.0.0/10 = 100.64.x.x - 100.127.x.x)
+                if ip.startswith("100."):
+                    parts = ip.split(".")
+                    if len(parts) >= 2 and parts[1].isdigit():
+                        second = int(parts[1])
+                        if 64 <= second <= 127:
+                            ip_geo[ip] = "内部网络"
+                            continue
+                # Railway Docker / internal
+                if ip.startswith("172.") or "internal" in ip or ip == "127.0.0.1":
+                    ip_geo[ip] = "内部网络"
                     continue
                 try:
                     resp = urllib.request.urlopen(f"http://ip-api.com/json/{ip}?lang=zh-CN&fields=country,regionName,city,isp", timeout=3)
