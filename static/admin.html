@@ -63,16 +63,31 @@
   <button class="btn btn-primary" onclick="loadUsage()">刷新统计</button>
 </div>
 
-<h2 style="margin-top:40px;">请求明细（今日，带具体时刻）</h2>
+<h2 style="margin-top:40px;">请求明细（保留7天，北京时间）</h2>
 <div class="actions" style="margin-bottom:8px;">
-  <button class="btn btn-primary" onclick="loadAudit()">刷新明细</button>
+  <button class="btn btn-primary" onclick="loadAudit(1)">今日</button>
+  <button class="btn" onclick="loadAudit(3)" style="background:var(--accent-soft);">3天</button>
+  <button class="btn" onclick="loadAudit(7)" style="background:var(--accent-soft);">7天</button>
+  <span style="margin-left:8px;font-size:0.82rem;color:var(--muted);" id="auditInfo"></span>
 </div>
+
+<h3 style="color:var(--warm);margin-bottom:4px;">付费请求（AI 接口）</h3>
 <div style="overflow-x:auto;">
 <table style="font-size:0.8rem;">
-  <thead><tr><th>时间</th><th>IP</th><th>端点</th><th>耗时</th><th>UA</th></tr></thead>
-  <tbody id="auditTable"><tr><td class="empty" colspan="5">加载中...</td></tr></tbody>
+  <thead><tr><th>时间</th><th>IP</th><th>端点</th><th>耗时</th></tr></thead>
+  <tbody id="paidTable"><tr><td class="empty" colspan="4">加载中...</td></tr></tbody>
 </table>
 </div>
+
+<details style="margin-top:16px;">
+  <summary style="cursor:pointer;color:var(--muted);font-size:0.9rem;">免费请求（健康检查、静态文件等）<span id="freeCount"></span></summary>
+  <div style="overflow-x:auto;margin-top:8px;">
+  <table style="font-size:0.8rem;">
+    <thead><tr><th>时间</th><th>IP</th><th>端点</th><th>耗时</th></tr></thead>
+    <tbody id="freeTable"><tr><td class="empty" colspan="4">加载中...</td></tr></tbody>
+  </table>
+  </div>
+</details>
 
 <h2 style="margin-top:40px;">用户反馈</h2>
 <script>
@@ -153,34 +168,49 @@ async function loadUsage() {
   } catch(e) { console.error(e); }
 }
 
-async function loadAudit() {
+async function loadAudit(days = 1) {
   try {
-    const r = await fetch('/api/admin/audit?limit=200&today_only=1');
+    const r = await fetch('/api/admin/audit?limit=500&days=' + days);
     const d = await r.json();
-    const tbody = document.getElementById('auditTable');
-    const aiEps = ['/api/profile/build','/api/analyze','/api/plan/generate','/api/chat'];
-    if (!d.requests || d.requests.length === 0) {
-      tbody.innerHTML = '<tr><td class="empty" colspan="5">今日暂无请求记录</td></tr>';
-      return;
-    }
-    tbody.innerHTML = d.requests.map(req => {
-      const isAI = aiEps.some(e => req.path.includes(e));
-      return '<tr style="' + (isAI ? 'background:rgba(215,110,77,0.06);' : '') + '">'
+    document.getElementById('auditInfo').textContent = '共 ' + (d.paid_count || 0) + ' 次付费 + ' + (d.free_count || 0) + ' 次免费';
+
+    const paidTable = document.getElementById('paidTable');
+    const paid = d.paid_requests || [];
+    if (paid.length === 0) {
+      paidTable.innerHTML = '<tr><td class="empty" colspan="4">无付费请求</td></tr>';
+    } else {
+      paidTable.innerHTML = paid.map(req =>
+        '<tr style="background:rgba(215,110,77,0.04);">'
         + '<td style="white-space:nowrap;">' + (req.time || '') + '</td>'
         + '<td>' + (req.ip || '') + '</td>'
-        + '<td style="' + (isAI ? 'color:var(--warm);font-weight:700;' : '') + '">' + (req.path || '') + '</td>'
+        + '<td style="color:var(--warm);font-weight:700;">' + (req.path || '') + '</td>'
         + '<td>' + (req.elapsed_ms || '') + 'ms</td>'
-        + '<td style="font-size:0.72rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (req.ua_short || '') + '">' + (req.ua_short || '').slice(0,60) + '</td>'
-        + '</tr>';
-    }).join('');
+        + '</tr>'
+      ).join('');
+    }
+
+    const freeTable = document.getElementById('freeTable');
+    const free = d.free_requests || [];
+    document.getElementById('freeCount').textContent = '（' + free.length + ' 条）';
+    if (free.length === 0) {
+      freeTable.innerHTML = '<tr><td class="empty" colspan="4">无免费请求</td></tr>';
+    } else {
+      freeTable.innerHTML = free.slice(0, 200).map(req =>
+        '<tr>'
+        + '<td style="white-space:nowrap;">' + (req.time || '') + '</td>'
+        + '<td>' + (req.ip || '') + '</td>'
+        + '<td>' + (req.path || '') + '</td>'
+        + '<td>' + (req.elapsed_ms || '') + 'ms</td>'
+        + '</tr>'
+      ).join('');
+    }
   } catch(e) { console.error(e); }
 }
 
 loadFeedbacks();
 loadUsage();
-loadAudit();
-// Auto-refresh every 60s
-setInterval(() => { loadFeedbacks(); loadUsage(); loadAudit(); }, 60000);
+loadAudit(1);
+setInterval(() => { loadFeedbacks(); loadUsage(); loadAudit(1); }, 60000);
 </script>
 </body>
 </html>

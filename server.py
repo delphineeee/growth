@@ -24,6 +24,7 @@ app = FastAPI(title="Growth AI Studio API", version="1.0.0")
 # ═══════════════════════════════════════════════════════
 AUDIT_FILE = PROJECT_ROOT / "data" / "api_audit.jsonl"
 RATE_LIMIT = {}  # IP -> [timestamps]
+TZ_OFFSET = 8  # UTC+8 北京时间
 
 @app.middleware("http")
 async def audit_and_rate_limit(request: Request, call_next):
@@ -53,8 +54,11 @@ async def audit_and_rate_limit(request: Request, call_next):
     # Log to file
     try:
         AUDIT_FILE.parent.mkdir(parents=True, exist_ok=True)
+        now_local = datetime.now()
+        from datetime import timedelta
+        now_local = now_local + timedelta(hours=TZ_OFFSET)
         entry = {
-            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "time": now_local.strftime("%Y-%m-%d %H:%M:%S"),
             "ip": ip,
             "method": method,
             "path": path,
@@ -117,23 +121,35 @@ async def health():
 # ═══════════════════════════════════════════════════════
 
 @app.get("/api/admin/audit")
-async def get_audit_log(limit: int = 200, today_only: bool = True):
-    """查看最近的 API 请求日志（带具体时刻）"""
+async def get_audit_log(limit: int = 500, days: int = 7):
+    """查看最近 N 天的 API 请求日志"""
     try:
         if not AUDIT_FILE.exists():
             return {"requests": [], "total": 0}
+        from datetime import timedelta
+        cutoff = (datetime.now() + timedelta(hours=TZ_OFFSET) - timedelta(days=days)).strftime("%Y-%m-%d")
         requests = []
-        today = datetime.now().strftime("%Y-%m-%d")
         with open(AUDIT_FILE, "r", encoding="utf-8") as f:
             for line in f:
                 if line.strip():
                     r = json.loads(line.strip())
-                    if today_only and not r.get("time", "").startswith(today):
-                        continue
-                    requests.append(r)
+                    if r.get("time", "")[:10] >= cutoff:
+                        requests.append(r)
         requests.reverse()
         total = len(requests)
-        return {"requests": requests[:limit], "total": total}
+        # Separate paid vs free
+        ai_paths = ["/api/profile/build", "/api/analyze", "/api/plan/generate", "/api/chat"]
+        paid = [r for r in requests if any(ep in r.get("path", "") for ep in ai_paths)]
+        free = [r for r in requests if r not in set(paid)]
+        return {
+            "requests": requests[:limit],
+            "paid_requests": paid[:limit],
+            "free_requests": free[:limit],
+            "total": total,
+            "paid_count": len(paid),
+            "free_count": len(free),
+            "days": days,
+        }
     except Exception as e:
         return {"requests": [], "total": 0, "error": str(e)}
 
