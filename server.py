@@ -129,8 +129,8 @@ async def get_audit_log(limit: int = 100):
         return {"requests": [], "total": 0, "error": str(e)}
 
 @app.get("/api/admin/usage-stats")
-async def usage_stats():
-    """API 使用统计"""
+async def usage_stats(geo: bool = False):
+    """API 使用统计，支持 IP 地理位置查询"""
     try:
         if not AUDIT_FILE.exists():
             return {"total_requests": 0, "ai_requests": 0, "by_ip": {}, "by_endpoint": {}, "today_requests": 0}
@@ -152,16 +152,36 @@ async def usage_stats():
             ip = r.get("ip", "?")
             by_ip[ip] = by_ip.get(ip, 0) + 1
 
+        # IP geolocation (cached, free ip-api.com, 45/min limit)
+        ip_geo = {}
+        if geo:
+            import urllib.request
+            unique_ips = list(set(r.get("ip", "") for r in today_reqs if r.get("ip") and r["ip"] != "unknown"))
+            for ip in unique_ips[:10]:
+                try:
+                    resp = urllib.request.urlopen(f"http://ip-api.com/json/{ip}?lang=zh-CN", timeout=3)
+                    data = json.loads(resp.read())
+                    if data.get("status") == "success":
+                        ip_geo[ip] = f"{data.get('country','')} {data.get('regionName','')} {data.get('city','')} · {data.get('isp','')}"
+                except:
+                    pass
+
         by_endpoint = {}
         for r in today_ai:
             ep = r.get("path", "?")
             by_endpoint[ep] = by_endpoint.get(ep, 0) + 1
 
-        # Estimate cost (DeepSeek V4: ¥0.001/light, ¥0.03/heavy)
-        light_eps = ["/api/chat"]
-        light_count = sum(1 for r in today_ai if r.get("path") in light_eps)
+        light_count = sum(1 for r in today_ai if r.get("path") in ["/api/chat"])
         heavy_count = len(today_ai) - light_count
         est_cost = round(light_count * 0.002 + heavy_count * 0.015, 2)
+
+        # Group IPs by UA pattern to identify same user
+        ip_ua_map = {}
+        for r in today_reqs:
+            ip = r.get("ip", "?")
+            ua = r.get("ua_short", "")[:60]
+            key = (ip, ua)
+            ip_ua_map[key] = ip_ua_map.get(key, 0) + 1
 
         return {
             "total_requests": len(requests),
@@ -170,6 +190,8 @@ async def usage_stats():
             "today_est_cost_rmb": est_cost,
             "by_ip_today": dict(sorted(by_ip.items(), key=lambda x: -x[1])[:10]),
             "by_endpoint_today": by_endpoint,
+            "ip_geo": ip_geo,
+            "note": "同一IP+相同UA大概率是同一人。不同IP但同城市+同ISP可能是同一人（切换网络）。",
         }
     except Exception as e:
         return {"error": str(e)}
