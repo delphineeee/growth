@@ -63,6 +63,17 @@
   <button class="btn btn-primary" onclick="loadUsage()">刷新统计</button>
 </div>
 
+<h2 style="margin-top:40px;">请求明细（今日，带具体时刻）</h2>
+<div class="actions" style="margin-bottom:8px;">
+  <button class="btn btn-primary" onclick="loadAudit()">刷新明细</button>
+</div>
+<div style="overflow-x:auto;">
+<table style="font-size:0.8rem;">
+  <thead><tr><th>时间</th><th>IP</th><th>端点</th><th>耗时</th><th>UA</th></tr></thead>
+  <tbody id="auditTable"><tr><td class="empty" colspan="5">加载中...</td></tr></tbody>
+</table>
+</div>
+
 <h2 style="margin-top:40px;">用户反馈</h2>
 <script>
 async function loadFeedbacks() {
@@ -142,10 +153,34 @@ async function loadUsage() {
   } catch(e) { console.error(e); }
 }
 
+async function loadAudit() {
+  try {
+    const r = await fetch('/api/admin/audit?limit=200&today_only=1');
+    const d = await r.json();
+    const tbody = document.getElementById('auditTable');
+    const aiEps = ['/api/profile/build','/api/analyze','/api/plan/generate','/api/chat'];
+    if (!d.requests || d.requests.length === 0) {
+      tbody.innerHTML = '<tr><td class="empty" colspan="5">今日暂无请求记录</td></tr>';
+      return;
+    }
+    tbody.innerHTML = d.requests.map(req => {
+      const isAI = aiEps.some(e => req.path.includes(e));
+      return '<tr style="' + (isAI ? 'background:rgba(215,110,77,0.06);' : '') + '">'
+        + '<td style="white-space:nowrap;">' + (req.time || '') + '</td>'
+        + '<td>' + (req.ip || '') + '</td>'
+        + '<td style="' + (isAI ? 'color:var(--warm);font-weight:700;' : '') + '">' + (req.path || '') + '</td>'
+        + '<td>' + (req.elapsed_ms || '') + 'ms</td>'
+        + '<td style="font-size:0.72rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (req.ua_short || '') + '">' + (req.ua_short || '').slice(0,60) + '</td>'
+        + '</tr>';
+    }).join('');
+  } catch(e) { console.error(e); }
+}
+
 loadFeedbacks();
 loadUsage();
+loadAudit();
 // Auto-refresh every 60s
-setInterval(() => { loadFeedbacks(); loadUsage(); }, 60000);
+setInterval(() => { loadFeedbacks(); loadUsage(); loadAudit(); }, 60000);
 </script>
 </body>
 </html>

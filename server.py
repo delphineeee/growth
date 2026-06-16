@@ -28,7 +28,12 @@ RATE_LIMIT = {}  # IP -> [timestamps]
 @app.middleware("http")
 async def audit_and_rate_limit(request: Request, call_next):
     """记录所有 API 请求的时间、IP、端点、UA，并对 AI 端点限流"""
-    ip = request.client.host if request.client else "unknown"
+    # Railway 前面有反向代理，真实 IP 在 X-Forwarded-For 或 X-Real-IP 头里
+    ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+    if not ip:
+        ip = request.headers.get("X-Real-IP", "")
+    if not ip:
+        ip = request.client.host if request.client else "unknown"
     ua = request.headers.get("user-agent", "")[:200]
     path = request.url.path
     method = request.method
@@ -112,16 +117,20 @@ async def health():
 # ═══════════════════════════════════════════════════════
 
 @app.get("/api/admin/audit")
-async def get_audit_log(limit: int = 100):
-    """查看最近的 API 请求日志"""
+async def get_audit_log(limit: int = 200, today_only: bool = True):
+    """查看最近的 API 请求日志（带具体时刻）"""
     try:
         if not AUDIT_FILE.exists():
             return {"requests": [], "total": 0}
         requests = []
+        today = datetime.now().strftime("%Y-%m-%d")
         with open(AUDIT_FILE, "r", encoding="utf-8") as f:
             for line in f:
                 if line.strip():
-                    requests.append(json.loads(line.strip()))
+                    r = json.loads(line.strip())
+                    if today_only and not r.get("time", "").startswith(today):
+                        continue
+                    requests.append(r)
         requests.reverse()
         total = len(requests)
         return {"requests": requests[:limit], "total": total}
