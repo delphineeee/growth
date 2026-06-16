@@ -291,10 +291,25 @@ async function submitFeedback() {
   setTimeout(() => { msg.style.display = 'none'; }, 3000);
 }
 
+// ── Admin secret entrance ──────────────────────────────
+let _adminClicks = 0;
+function adminSecret() {
+  _adminClicks++;
+  if (_adminClicks >= 5) {
+    _adminClicks = 0;
+    window.open('/admin', '_blank');
+  }
+}
+
 // ── About Modal ────────────────────────────────────────
 function toggleAbout() {
   const m = document.getElementById('aboutModal');
   m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
+  // Update version from server
+  fetch('/api/health').then(r => r.json()).then(d => {
+    const vl = document.getElementById('versionLabel');
+    if (vl) vl.textContent = 'v' + (d.version || '?');
+  }).catch(() => {});
 }
 
 // ── Navigation ──────────────────────────────────────────
