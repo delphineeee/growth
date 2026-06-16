@@ -52,8 +52,8 @@
   <div class="stat"><div class="num" id="todayCost">—</div><div class="label">今日预估费用</div></div>
 </div>
 <table style="margin-top:12px;">
-  <thead><tr><th>IP 地址</th><th>地理位置</th><th>今日请求数</th></tr></thead>
-  <tbody id="ipTable"><tr><td class="empty" colspan="3">加载中...</td></tr></tbody>
+  <thead><tr><th>IP 地址</th><th>地理位置</th><th>总请求</th><th>调用的端点</th></tr></thead>
+  <tbody id="ipTable"><tr><td class="empty" colspan="4">加载中...</td></tr></tbody>
 </table>
 <table style="margin-top:4px;">
   <thead><tr><th>AI 端点</th><th>今日调用次数</th></tr></thead>
@@ -124,9 +124,15 @@ async function loadUsage() {
     const ipTable = document.getElementById('ipTable');
     const ips = d.by_ip_today || {};
     const geo = d.ip_geo || {};
-    ipTable.innerHTML = Object.entries(ips).map(([ip, n]) =>
-      '<tr><td>' + ip + '</td><td style="font-size:0.82rem;color:var(--muted);">' + (geo[ip] || '—') + '</td><td>' + n + '</td></tr>'
-    ).join('') || '<tr><td class="empty" colspan="3">暂无数据</td></tr>';
+    const ipEp = d.ip_endpoints || {};
+    ipTable.innerHTML = Object.entries(ips).map(([ip, n]) => {
+      const eps = ipEp[ip] || {};
+      const epDetail = Object.entries(eps).map(([ep, c]) => {
+        const isAI = ep.includes('/profile/build') || ep.includes('/analyze') || ep.includes('/plan/generate') || ep.includes('/chat');
+        return '<span style="' + (isAI ? 'color:var(--warm);font-weight:700;' : 'color:var(--muted);') + '">' + ep + ' x' + c + '</span>';
+      }).join('<br>');
+      return '<tr><td>' + ip + '</td><td style="font-size:0.8rem;color:var(--muted);">' + (geo[ip] || '—') + '</td><td>' + n + '</td><td style="font-size:0.78rem;">' + (epDetail || '—') + '</td></tr>';
+    }).join('') || '<tr><td class="empty" colspan="4">暂无数据</td></tr>';
 
     const epTable = document.getElementById('epTable');
     const eps = d.by_endpoint_today || {};

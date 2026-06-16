@@ -167,6 +167,13 @@ async def usage_stats(geo: bool = False):
                 if any(ip.startswith(p) for p in LOCAL_PREFIXES):
                     ip_geo[ip] = "局域网 / 内网地址"
                     continue
+                # CGNAT / Railway internal (RFC 6598: 100.64.0.0/10)
+                if ip.startswith("100.64.") or ip.startswith("100.65.") or ip.startswith("100.66.") or ip.startswith("100.67."):
+                    ip_geo[ip] = "Railway 内部容器 · CGNAT地址段"
+                    continue
+                if ip.startswith("100.") and ip.split(".")[1].isdigit() and 64 <= int(ip.split(".")[1]) <= 127:
+                    ip_geo[ip] = "Railway 内部容器 · CGNAT地址段"
+                    continue
                 # Skip Railway internal IPs
                 if ip.startswith("172.") or "internal" in ip:
                     ip_geo[ip] = "Railway 内部网络"
@@ -190,6 +197,14 @@ async def usage_stats(geo: bool = False):
         heavy_count = len(today_ai) - light_count
         est_cost = round(light_count * 0.002 + heavy_count * 0.015, 2)
 
+        # Per-IP endpoint breakdown (what is each IP actually calling?)
+        ip_endpoints = {}
+        for r in today_reqs:
+            ip = r.get("ip", "?")
+            ep = r.get("path", "?")
+            ip_endpoints.setdefault(ip, {})
+            ip_endpoints[ip][ep] = ip_endpoints[ip].get(ep, 0) + 1
+
         # Group IPs by UA pattern to identify same user
         ip_ua_map = {}
         for r in today_reqs:
@@ -205,8 +220,9 @@ async def usage_stats(geo: bool = False):
             "today_est_cost_rmb": est_cost,
             "by_ip_today": dict(sorted(by_ip.items(), key=lambda x: -x[1])[:10]),
             "by_endpoint_today": by_endpoint,
+            "ip_endpoints": {ip: dict(sorted(eps.items(), key=lambda x: -x[1])) for ip, eps in ip_endpoints.items() if ip in by_ip},
             "ip_geo": ip_geo,
-            "note": "同一IP+相同UA大概率是同一人。不同IP但同城市+同ISP可能是同一人（切换网络）。",
+            "note": "Railway内部IP(100.64.x.x)的请求来自平台自身健康检查或UptimeRobot。同一IP+相同UA大概率是同一人。",
         }
     except Exception as e:
         return {"error": str(e)}
