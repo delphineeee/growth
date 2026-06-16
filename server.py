@@ -152,19 +152,34 @@ async def usage_stats(geo: bool = False):
             ip = r.get("ip", "?")
             by_ip[ip] = by_ip.get(ip, 0) + 1
 
-        # IP geolocation (cached, free ip-api.com, 45/min limit)
+        # IP geolocation (free ip-api.com, 45/min limit)
         ip_geo = {}
         if geo:
             import urllib.request
-            unique_ips = list(set(r.get("ip", "") for r in today_reqs if r.get("ip") and r["ip"] != "unknown"))
-            for ip in unique_ips[:10]:
+            LOCAL_PREFIXES = ("127.", "10.", "192.168.", "172.16.", "172.17.", "172.18.",
+                              "172.19.", "172.20.", "172.21.", "172.22.", "172.23.",
+                              "172.24.", "172.25.", "172.26.", "172.27.", "172.28.",
+                              "172.29.", "172.30.", "172.31.", "0.", "localhost")
+            unique_ips = list(set(r.get("ip", "") for r in today_reqs
+                                  if r.get("ip") and r["ip"] not in ("unknown", "127.0.0.1")))
+            for ip in unique_ips[:20]:
+                # Skip local/private IPs
+                if any(ip.startswith(p) for p in LOCAL_PREFIXES):
+                    ip_geo[ip] = "局域网 / 内网地址"
+                    continue
+                # Skip Railway internal IPs
+                if ip.startswith("172.") or "internal" in ip:
+                    ip_geo[ip] = "Railway 内部网络"
+                    continue
                 try:
-                    resp = urllib.request.urlopen(f"http://ip-api.com/json/{ip}?lang=zh-CN", timeout=3)
+                    resp = urllib.request.urlopen(f"http://ip-api.com/json/{ip}?lang=zh-CN&fields=country,regionName,city,isp", timeout=3)
                     data = json.loads(resp.read())
-                    if data.get("status") == "success":
+                    if data.get("country"):
                         ip_geo[ip] = f"{data.get('country','')} {data.get('regionName','')} {data.get('city','')} · {data.get('isp','')}"
+                    else:
+                        ip_geo[ip] = "无法定位（可能是代理/VPN）"
                 except:
-                    pass
+                    ip_geo[ip] = "查询超时（免费API限流）"
 
         by_endpoint = {}
         for r in today_ai:
