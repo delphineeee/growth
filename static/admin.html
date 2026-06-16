@@ -45,6 +45,25 @@
   <tbody id="feedbackTable"><tr><td class="empty" colspan="3">加载中...</td></tr></tbody>
 </table>
 
+<h2 style="margin-top:40px;">API 使用统计</h2>
+<div class="stats" id="usageStats">
+  <div class="stat"><div class="num" id="todayReqs">—</div><div class="label">今日总请求</div></div>
+  <div class="stat"><div class="num" id="todayAI">—</div><div class="label">今日 AI 请求</div></div>
+  <div class="stat"><div class="num" id="todayCost">—</div><div class="label">今日预估费用</div></div>
+</div>
+<table style="margin-top:12px;">
+  <thead><tr><th>IP 地址</th><th>今日请求数</th></tr></thead>
+  <tbody id="ipTable"><tr><td class="empty" colspan="2">加载中...</td></tr></tbody>
+</table>
+<table style="margin-top:4px;">
+  <thead><tr><th>AI 端点</th><th>今日调用次数</th></tr></thead>
+  <tbody id="epTable"><tr><td class="empty" colspan="2">加载中...</td></tr></tbody>
+</table>
+<div class="actions" style="margin-top:8px;">
+  <button class="btn btn-primary" onclick="loadUsage()">刷新统计</button>
+</div>
+
+<h2 style="margin-top:40px;">用户反馈</h2>
 <script>
 async function loadFeedbacks() {
   try {
@@ -94,9 +113,32 @@ fetch('/api/health').then(r => r.json()).then(d => {
   document.getElementById('version').textContent = 'v' + (d.version || '?');
 }).catch(() => {});
 
+async function loadUsage() {
+  try {
+    const r = await fetch('/api/admin/usage-stats');
+    const d = await r.json();
+    document.getElementById('todayReqs').textContent = d.today_requests || 0;
+    document.getElementById('todayAI').textContent = d.today_ai_requests || 0;
+    document.getElementById('todayCost').textContent = '¥' + (d.today_est_cost_rmb || 0);
+
+    const ipTable = document.getElementById('ipTable');
+    const ips = d.by_ip_today || {};
+    ipTable.innerHTML = Object.entries(ips).map(([ip, n]) =>
+      '<tr><td>' + ip + '</td><td>' + n + '</td></tr>'
+    ).join('') || '<tr><td class="empty" colspan="2">暂无数据</td></tr>';
+
+    const epTable = document.getElementById('epTable');
+    const eps = d.by_endpoint_today || {};
+    epTable.innerHTML = Object.entries(eps).map(([ep, n]) =>
+      '<tr><td>' + ep + '</td><td>' + n + '</td></tr>'
+    ).join('') || '<tr><td class="empty" colspan="2">暂无数据</td></tr>';
+  } catch(e) { console.error(e); }
+}
+
 loadFeedbacks();
+loadUsage();
 // Auto-refresh every 60s
-setInterval(loadFeedbacks, 60000);
+setInterval(() => { loadFeedbacks(); loadUsage(); }, 60000);
 </script>
 </body>
 </html>

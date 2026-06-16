@@ -2,9 +2,10 @@
 Serves teammate's static frontend + exposes LangGraph AI agents as REST API.
 """
 
-import sys, os, json, asyncio
+import sys, os, json, asyncio, time
 from pathlib import Path
-from fastapi import FastAPI, HTTPException
+from datetime import datetime
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -17,6 +18,53 @@ sys.path.insert(0, str(PROJECT_ROOT))
 STATIC_DIR = PROJECT_ROOT / "static"
 
 app = FastAPI(title="Growth AI Studio API", version="1.0.0")
+
+# ═══════════════════════════════════════════════════════
+# API Request Audit Logging
+# ═══════════════════════════════════════════════════════
+AUDIT_FILE = PROJECT_ROOT / "data" / "api_audit.jsonl"
+RATE_LIMIT = {}  # IP -> [timestamps]
+
+@app.middleware("http")
+async def audit_and_rate_limit(request: Request, call_next):
+    """记录所有 API 请求的时间、IP、端点、UA，并对 AI 端点限流"""
+    ip = request.client.host if request.client else "unknown"
+    ua = request.headers.get("user-agent", "")[:200]
+    path = request.url.path
+    method = request.method
+    t0 = time.time()
+
+    # Rate limit: max 10 AI requests per minute per IP
+    if path.startswith("/api/") and path not in ["/api/health", "/api/feedbacks"]:
+        now = time.time()
+        RATE_LIMIT.setdefault(ip, []).append(now)
+        RATE_LIMIT[ip] = [t for t in RATE_LIMIT[ip] if now - t < 60]
+        if len(RATE_LIMIT[ip]) > 30:  # 30 AI calls per minute max
+            return JSONResponse({"error": "请求过于频繁，请稍后再试", "code": 429}, status_code=429)
+
+    response = await call_next(request)
+    elapsed_ms = round((time.time() - t0) * 1000)
+
+    # Log to file
+    try:
+        AUDIT_FILE.parent.mkdir(parents=True, exist_ok=True)
+        entry = {
+            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "ip": ip,
+            "method": method,
+            "path": path,
+            "status": response.status_code,
+            "elapsed_ms": elapsed_ms,
+            "ua_short": ua[:80],
+        }
+        with open(AUDIT_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except:
+        pass
+
+    return response
+
+from fastapi.responses import JSONResponse
 
 app.add_middleware(
     CORSMiddleware,
@@ -57,7 +105,74 @@ class ChatRequest(BaseModel):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "1.4.2"}
+    return {"status": "ok", "version": "1.4.4"}
+
+# ═══════════════════════════════════════════════════════
+# API Audit & Usage Stats
+# ═══════════════════════════════════════════════════════
+
+@app.get("/api/admin/audit")
+async def get_audit_log(limit: int = 100):
+    """查看最近的 API 请求日志"""
+    try:
+        if not AUDIT_FILE.exists():
+            return {"requests": [], "total": 0}
+        requests = []
+        with open(AUDIT_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    requests.append(json.loads(line.strip()))
+        requests.reverse()
+        total = len(requests)
+        return {"requests": requests[:limit], "total": total}
+    except Exception as e:
+        return {"requests": [], "total": 0, "error": str(e)}
+
+@app.get("/api/admin/usage-stats")
+async def usage_stats():
+    """API 使用统计"""
+    try:
+        if not AUDIT_FILE.exists():
+            return {"total_requests": 0, "ai_requests": 0, "by_ip": {}, "by_endpoint": {}, "today_requests": 0}
+        requests = []
+        with open(AUDIT_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    requests.append(json.loads(line.strip()))
+
+        today = datetime.now().strftime("%Y-%m-%d")
+        today_reqs = [r for r in requests if r.get("time", "").startswith(today)]
+
+        ai_paths = ["/api/profile/build", "/api/analyze", "/api/plan/generate", "/api/chat"]
+        ai_reqs = [r for r in requests if r.get("path") in ai_paths]
+        today_ai = [r for r in today_reqs if r.get("path") in ai_paths]
+
+        by_ip = {}
+        for r in today_reqs:
+            ip = r.get("ip", "?")
+            by_ip[ip] = by_ip.get(ip, 0) + 1
+
+        by_endpoint = {}
+        for r in today_ai:
+            ep = r.get("path", "?")
+            by_endpoint[ep] = by_endpoint.get(ep, 0) + 1
+
+        # Estimate cost (DeepSeek V4: ¥0.001/light, ¥0.03/heavy)
+        light_eps = ["/api/chat"]
+        light_count = sum(1 for r in today_ai if r.get("path") in light_eps)
+        heavy_count = len(today_ai) - light_count
+        est_cost = round(light_count * 0.002 + heavy_count * 0.015, 2)
+
+        return {
+            "total_requests": len(requests),
+            "today_requests": len(today_reqs),
+            "today_ai_requests": len(today_ai),
+            "today_est_cost_rmb": est_cost,
+            "by_ip_today": dict(sorted(by_ip.items(), key=lambda x: -x[1])[:10]),
+            "by_endpoint_today": by_endpoint,
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 # ═══════════════════════════════════════════════════════
 # Feedback
